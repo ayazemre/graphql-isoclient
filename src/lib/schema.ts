@@ -7,12 +7,12 @@ import { compareByName, isLeafTypeReference, renderTypeReferenceString } from ".
 
 export async function loadSchemaFromEndpoint(schemaEndpoint: string, headers: Record<string, string> | undefined): Promise<SchemaModel> {
   const introspectionResponse = await fetch(schemaEndpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify({
       operationName: "IntrospectionQuery",
       query: introspectionQueryText,
     }),
+    headers: { "content-type": "application/json", ...headers },
+    method: "POST",
   });
 
   if (introspectionResponse.ok === false) {
@@ -40,8 +40,8 @@ export async function loadSchemaFromIntrospectionJson(introspectionJsonFile: str
 
 export function resolveRootTypeNames(schemaModel: SchemaModel): RootTypeNames {
   return {
-    query: schemaModel.queryTypeName,
     mutation: schemaModel.mutationTypeName,
+    query: schemaModel.queryTypeName,
     subscription: schemaModel.subscriptionTypeName,
   };
 }

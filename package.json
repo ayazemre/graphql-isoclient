@@ -19,23 +19,23 @@
     "type": "git",
     "url": "git+https://github.com/ayazemre/graphql-isoclient.git"
   },
+  "bin": {
+    "graphql-isoclient": "./dist/cli.js"
+  },
   "files": [
     "dist"
   ],
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "imports": {
+    "#src/*": "./src/*"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
-  },
-  "bin": {
-    "graphql-isoclient": "./dist/cli.js"
-  },
-  "imports": {
-    "#src/*": "./src/*"
   },
   "scripts": {
     "test": "dotenvx run -- node --test-global-setup=./tests/setup.ts --test tests/index.test.ts",

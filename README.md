@@ -59,9 +59,7 @@ const userResult = await query()
 
 const username = userResult.User?.username;
 
-const tweetResult = await mutation()
-  .createTweet({ body: "hello" }, { id: true, body: true })
-  .run();
+const tweetResult = await mutation().createTweet({ body: "hello" }, { id: true, body: true }).run();
 
 const tweetBody = tweetResult.createTweet?.body;
 ```
@@ -84,10 +82,7 @@ A selection map describes the fields to read.
 `as` renames the response key of the field that was appended last. Aliases are supported on operation root fields.
 
 ```ts
-const result = await query()
-  .User({ id: "user-1" }, { username: true })
-  .as("viewer")
-  .run();
+const result = await query().User({ id: "user-1" }, { username: true }).as("viewer").run();
 
 const viewerName = result.viewer?.username;
 ```
@@ -96,18 +91,16 @@ const viewerName = result.viewer?.username;
 
 `run` accepts the request options.
 
-| Option     | Type                     | Description                                     |
-| ---------- | ------------------------ | ----------------------------------------------- |
-| `headers`  | `Record<string, string>` | Headers sent with the request                    |
-| `endpoint` | `string`                 | Overrides the endpoint baked in at generation     |
-| `signal`   | `AbortSignal`            | Aborts the request                               |
+| Option     | Type                     | Description                                   |
+| ---------- | ------------------------ | --------------------------------------------- |
+| `headers`  | `Record<string, string>` | Headers sent with the request                 |
+| `endpoint` | `string`                 | Overrides the endpoint baked in at generation |
+| `signal`   | `AbortSignal`            | Aborts the request                            |
 
 ```ts
 const controller = new AbortController();
 
-const result = await query()
-  .User({ id: "user-1" }, { username: true })
-  .run({ signal: controller.signal });
+const result = await query().User({ id: "user-1" }, { username: true }).run({ signal: controller.signal });
 ```
 
 ### Subscriptions
@@ -117,9 +110,7 @@ A subscription returns an async iterable. The transport is injected, so the clie
 ```ts
 import { subscription } from "./graphql/client.ts";
 
-const stream = subscription()
-  .notificationAdded({ id: true, type: true })
-  .run({ transport: mySubscriptionTransport });
+const stream = subscription().notificationAdded({ id: true, type: true }).run({ transport: mySubscriptionTransport });
 
 for await (const event of stream) {
   console.log(event);
@@ -153,26 +144,26 @@ try {
 
 ## Generation options
 
-| Option                   | Type                     | Description                                          |
-| ------------------------ | ------------------------ | ---------------------------------------------------- |
-| `schemaEndpoint`         | `string`                 | Endpoint the schema is read from                      |
-| `introspectionJsonFile`  | `string`                 | File the schema is read from                          |
-| `output`                 | `string`                 | Path of the generated file                            |
-| `endpoint`               | `string`                 | Default endpoint baked into the generated client      |
-| `headers`                | `Record<string, string>` | Headers used for the introspection request           |
-| `includeDeprecatedFields`| `boolean`                | Includes deprecated fields, false by default          |
+| Option                    | Type                     | Description                                      |
+| ------------------------- | ------------------------ | ------------------------------------------------ |
+| `schemaEndpoint`          | `string`                 | Endpoint the schema is read from                 |
+| `introspectionJsonFile`   | `string`                 | File the schema is read from                     |
+| `output`                  | `string`                 | Path of the generated file                       |
+| `endpoint`                | `string`                 | Default endpoint baked into the generated client |
+| `headers`                 | `Record<string, string>` | Headers used for the introspection request       |
+| `includeDeprecatedFields` | `boolean`                | Includes deprecated fields, false by default     |
 
 Either `schemaEndpoint` or `introspectionJsonFile` is required.
 
 The command line exposes the same options as flags.
 
-| Flag                            | Description                                     |
-| ------------------------------- | ----------------------------------------------- |
-| `--schema-endpoint=<url>`       | Read the schema from an introspection endpoint    |
-| `--introspection-json-file=<p>`  | Read the schema from a saved payload              |
-| `--output=<path>`               | Path of the generated file                        |
-| `--endpoint=<url>`              | Default endpoint baked into the client            |
-| `--header=<name:value>`         | Header for the introspection request, repeatable  |
+| Flag                            | Description                                      |
+| ------------------------------- | ------------------------------------------------ |
+| `--schema-endpoint=<url>`       | Read the schema from an introspection endpoint   |
+| `--introspection-json-file=<p>` | Read the schema from a saved payload             |
+| `--output=<path>`               | Path of the generated file                       |
+| `--endpoint=<url>`              | Default endpoint baked into the client           |
+| `--header=<name:value>`         | Header for the introspection request, repeatable |
 | `--include-deprecated-fields=`  | `true` or `false`                                |
 
 ## Known limitations

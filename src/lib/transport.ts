@@ -48,9 +48,9 @@ export async function sendOperationRequest(operationRequest: OperationRequest): 
 
   try {
     operationResponse = await fetch(endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...headers },
       body: JSON.stringify({ operationName, query: document, variables }),
+      headers: { "content-type": "application/json", ...headers },
+      method: "POST",
       signal,
     });
   } catch (requestError) {

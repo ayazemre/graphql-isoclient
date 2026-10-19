@@ -31,7 +31,6 @@ export default defineConfig({
     return true;
   },
   input: await glob("src/**/*.ts"),
-  plugins: [...dts(), copyRuntimeSectionSources],
   output: {
     cleanDir: true,
     dir: "dist",
@@ -40,7 +39,7 @@ export default defineConfig({
     sourcemap: true,
   },
   platform: "node",
-
+  plugins: [...dts(), copyRuntimeSectionSources],
   resolve: {
     extensions: [".ts"],
   },

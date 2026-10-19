@@ -9,72 +9,72 @@ import { generateClient } from "#src/lib/generate.ts";
 const minimalIntrospectionPayload = {
   data: {
     __schema: {
-      queryType: { name: "Query" },
       mutationType: null,
+      queryType: { name: "Query" },
       subscriptionType: null,
       types: [
         {
-          kind: "OBJECT",
-          name: "Query",
           description: null,
-          interfaces: [],
           fields: [
             {
-              name: "greeting",
-              description: null,
               args: [],
-              type: { kind: "SCALAR", name: "String", ofType: null },
-              isDeprecated: false,
               deprecationReason: null,
-            },
-            {
-              name: "oldGreeting",
               description: null,
-              args: [],
+              isDeprecated: false,
+              name: "greeting",
               type: { kind: "SCALAR", name: "String", ofType: null },
-              isDeprecated: true,
-              deprecationReason: "Use greeting",
             },
             {
-              name: "user",
+              args: [],
+              deprecationReason: "Use greeting",
               description: null,
+              isDeprecated: true,
+              name: "oldGreeting",
+              type: { kind: "SCALAR", name: "String", ofType: null },
+            },
+            {
               args: [
                 {
-                  name: "id",
                   description: null,
+                  name: "id",
                   type: {
                     kind: "NON_NULL",
                     ofType: { kind: "SCALAR", name: "ID", ofType: null },
                   },
                 },
               ],
-              type: { kind: "OBJECT", name: "User", ofType: null },
-              isDeprecated: false,
               deprecationReason: null,
+              description: null,
+              isDeprecated: false,
+              name: "user",
+              type: { kind: "OBJECT", name: "User", ofType: null },
             },
           ],
+          interfaces: [],
+          kind: "OBJECT",
+          name: "Query",
         },
         {
-          kind: "OBJECT",
-          name: "User",
           description: null,
-          interfaces: [],
           fields: [
             {
-              name: "username",
-              description: null,
               args: [],
+              deprecationReason: null,
+              description: null,
+              isDeprecated: false,
+              name: "username",
               type: {
                 kind: "NON_NULL",
                 ofType: { kind: "SCALAR", name: "String", ofType: null },
               },
-              isDeprecated: false,
-              deprecationReason: null,
             },
           ],
+          interfaces: [],
+          kind: "OBJECT",
+          name: "User",
         },
-        { kind: "SCALAR", name: "String", description: null },
-        { kind: "SCALAR", name: "ID", description: null },
+        { description: null, kind: "SCALAR", name: "String" },
+        { description: null, kind: "SCALAR", name: "ID" },
       ],
     },
   },
@@ -116,9 +116,9 @@ describe("Introspection Json Input", () => {
     await writeFile(introspectionJsonFile, JSON.stringify(minimalIntrospectionPayload), "utf8");
 
     await generateClient({
+      includeDeprecatedFields: true,
       introspectionJsonFile,
       output: outputFile,
-      includeDeprecatedFields: true,
     });
 
     const generatedFileText = await readFile(outputFile, "utf8");

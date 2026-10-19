@@ -28,10 +28,10 @@ describe("Transport", () => {
     runningCaptureServer.setResponse(200, JSON.stringify({ data: { ok: true } }));
 
     const operationRequest = buildTestOperationRequest({
-      headers: { "x-test-header": "present" },
       document: "query TestOperation { ok }",
-      variables: { limit: 2 },
+      headers: { "x-test-header": "present" },
       operationName: "TestOperation",
+      variables: { limit: 2 },
     });
 
     const operationResult = await sendOperationRequest(operationRequest);
@@ -54,14 +54,14 @@ describe("Transport", () => {
       200,
       JSON.stringify({
         data: { Tweet: null },
-        errors: [{ message: "boom", path: ["Tweet"], extensions: { code: "BOOM" } }],
+        errors: [{ extensions: { code: "BOOM" }, message: "boom", path: ["Tweet"] }],
       }),
     );
 
     await assert.rejects(sendOperationRequest(buildTestOperationRequest()), (rejectionError: unknown) => {
       assert.ok(isIsoclientError(rejectionError));
       assert.equal(rejectionError.message, "boom");
-      assert.deepEqual(rejectionError.graphqlErrors, [{ message: "boom", path: ["Tweet"], extensions: { code: "BOOM" } }]);
+      assert.deepEqual(rejectionError.graphqlErrors, [{ extensions: { code: "BOOM" }, message: "boom", path: ["Tweet"] }]);
       assert.deepEqual(rejectionError.partialData, { Tweet: null });
       return true;
     });
@@ -119,7 +119,7 @@ describe("Transport", () => {
     const subscriptionIterator = startSubscriptionStream(operationRequest, testTransport);
     const firstEvent = await subscriptionIterator.next();
 
-    assert.deepEqual(firstEvent, { value: { tick: 1 }, done: false });
+    assert.deepEqual(firstEvent, { done: false, value: { tick: 1 } });
     assert.deepEqual(receivedOperationRequests, [operationRequest]);
   });
 
@@ -140,11 +140,11 @@ describe("Transport", () => {
 
 function buildTestOperationRequest(overrides: Partial<OperationRequest> = {}): OperationRequest {
   return {
+    document: "query TestOperation { ok }",
     endpoint: runningCaptureServer.endpoint,
     headers: {},
-    document: "query TestOperation { ok }",
-    variables: {},
     operationName: "TestOperation",
+    variables: {},
     ...overrides,
   };
 }

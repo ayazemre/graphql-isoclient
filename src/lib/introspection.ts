@@ -147,7 +147,7 @@ function buildSchemaModelFromIntrospectionResult(introspectionResult: unknown): 
   const subscriptionTypeName = readOptionalRootTypeName(schemaRecord.subscriptionType, "__schema.subscriptionType");
   const typeValues = readArray(schemaRecord.types, "__schema.types");
   const types = typeValues.map((typeValue, typeIndex) => convertSchemaType(typeValue, `__schema.types[${typeIndex}]`));
-  const schemaModel: SchemaModel = { queryTypeName, mutationTypeName, subscriptionTypeName, types };
+  const schemaModel: SchemaModel = { mutationTypeName, queryTypeName, subscriptionTypeName, types };
 
   assertTypeReferencesResolve(schemaModel);
 
@@ -175,7 +175,7 @@ function convertSchemaType(typeValue: unknown, typePath: string): SchemaTypeMode
   const description = readOptionalStringValue(typeRecord.description, `${typePath}.description`);
 
   if (kind === "SCALAR") {
-    return { kind, name, description };
+    return { description, kind, name };
   }
 
   if (kind === "ENUM") {
@@ -183,35 +183,35 @@ function convertSchemaType(typeValue: unknown, typePath: string): SchemaTypeMode
       convertSchemaEnumValue(enumValue, `${typePath}.enumValues[${enumValueIndex}]`),
     );
 
-    return { kind, name, description, enumValues };
+    return { description, enumValues, kind, name };
   }
 
   if (kind === "OBJECT") {
     return {
+      description,
+      fields: readFieldModels(typeRecord.fields, `${typePath}.fields`),
+      interfaces: readTypeNames(typeRecord.interfaces, `${typePath}.interfaces`),
       kind,
       name,
-      description,
-      interfaces: readTypeNames(typeRecord.interfaces, `${typePath}.interfaces`),
-      fields: readFieldModels(typeRecord.fields, `${typePath}.fields`),
     };
   }
 
   if (kind === "INTERFACE") {
     return {
+      description,
+      fields: readFieldModels(typeRecord.fields, `${typePath}.fields`),
+      interfaces: readTypeNames(typeRecord.interfaces, `${typePath}.interfaces`),
       kind,
       name,
-      description,
-      interfaces: readTypeNames(typeRecord.interfaces, `${typePath}.interfaces`),
       possibleTypeNames: readTypeNames(typeRecord.possibleTypes, `${typePath}.possibleTypes`),
-      fields: readFieldModels(typeRecord.fields, `${typePath}.fields`),
     };
   }
 
   if (kind === "UNION") {
     return {
+      description,
       kind,
       name,
-      description,
       possibleTypeNames: readTypeNames(typeRecord.possibleTypes, `${typePath}.possibleTypes`),
     };
   }
@@ -221,7 +221,7 @@ function convertSchemaType(typeValue: unknown, typePath: string): SchemaTypeMode
       convertSchemaInputField(inputField, `${typePath}.inputFields[${inputFieldIndex}]`),
     );
 
-    return { kind, name, description, inputFields };
+    return { description, inputFields, kind, name };
   }
 
   throw new Error(`${typePath}.kind is not a supported type kind: ${kind}`);
@@ -244,10 +244,10 @@ function convertSchemaField(field: unknown, fieldPath: string): SchemaFieldModel
   const argumentValues = readArray(fieldRecord.args, `${fieldPath}.args`);
 
   return {
-    name: readStringValue(fieldRecord.name, `${fieldPath}.name`),
-    description: readOptionalStringValue(fieldRecord.description, `${fieldPath}.description`),
-    deprecationReason: readDeprecationReason(fieldRecord, fieldPath),
     arguments: argumentValues.map((argument, argumentIndex) => convertSchemaArgument(argument, `${fieldPath}.args[${argumentIndex}]`)),
+    deprecationReason: readDeprecationReason(fieldRecord, fieldPath),
+    description: readOptionalStringValue(fieldRecord.description, `${fieldPath}.description`),
+    name: readStringValue(fieldRecord.name, `${fieldPath}.name`),
     typeReference: convertTypeReference(fieldRecord.type, `${fieldPath}.type`),
   };
 }
@@ -256,8 +256,8 @@ function convertSchemaArgument(argument: unknown, argumentPath: string): SchemaA
   const argumentRecord = readRecord(argument, argumentPath);
 
   return {
-    name: readStringValue(argumentRecord.name, `${argumentPath}.name`),
     description: readOptionalStringValue(argumentRecord.description, `${argumentPath}.description`),
+    name: readStringValue(argumentRecord.name, `${argumentPath}.name`),
     typeReference: convertTypeReference(argumentRecord.type, `${argumentPath}.type`),
   };
 }
@@ -266,8 +266,8 @@ function convertSchemaInputField(inputField: unknown, inputFieldPath: string): S
   const inputFieldRecord = readRecord(inputField, inputFieldPath);
 
   return {
-    name: readStringValue(inputFieldRecord.name, `${inputFieldPath}.name`),
     description: readOptionalStringValue(inputFieldRecord.description, `${inputFieldPath}.description`),
+    name: readStringValue(inputFieldRecord.name, `${inputFieldPath}.name`),
     typeReference: convertTypeReference(inputFieldRecord.type, `${inputFieldPath}.type`),
   };
 }
@@ -276,9 +276,9 @@ function convertSchemaEnumValue(enumValue: unknown, enumValuePath: string): Sche
   const enumValueRecord = readRecord(enumValue, enumValuePath);
 
   return {
-    name: readStringValue(enumValueRecord.name, `${enumValuePath}.name`),
-    description: readOptionalStringValue(enumValueRecord.description, `${enumValuePath}.description`),
     deprecationReason: readDeprecationReason(enumValueRecord, enumValuePath),
+    description: readOptionalStringValue(enumValueRecord.description, `${enumValuePath}.description`),
+    name: readStringValue(enumValueRecord.name, `${enumValuePath}.name`),
   };
 }
 

@@ -66,9 +66,9 @@ export function buildOperationDocument(
   scalarFieldLists: RuntimeScalarFieldLists,
 ): BuiltOperation {
   const documentBuildContext: DocumentBuildContext = {
+    usedVariableNames: new Set<string>(),
     variableDefinitions: [],
     variables: {},
-    usedVariableNames: new Set<string>(),
   };
 
   const rootSelection = expandSelection(operationSelection, rootTypeName, fieldMap, scalarFieldLists);
@@ -83,7 +83,7 @@ export function buildOperationDocument(
     documentBuildContext.variableDefinitions.length > 0 ? `(${documentBuildContext.variableDefinitions.join(", ")})` : "";
   const document = `${operationType} ${operationName}${variableDefinitionsSource} {\n${selectionSource}\n}`;
 
-  return { document, variables: documentBuildContext.variables, operationName };
+  return { document, operationName, variables: documentBuildContext.variables };
 }
 
 function expandSelection(

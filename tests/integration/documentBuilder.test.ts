@@ -7,11 +7,11 @@ import type { OperationSelection } from "#src/lib/documentBuilder.ts";
 import type { RuntimeFieldMap, RuntimeScalarFieldLists } from "#src/lib/fieldMap.ts";
 
 const documentFieldMap: RuntimeFieldMap = {
-  "Mutation.createTweet": { select: "Tweet", arguments: { body: "String" } },
+  "Mutation.createTweet": { arguments: { body: "String" }, select: "Tweet" },
   "Mutation.markTweetRead": { arguments: { id: "ID!" } },
-  "Query.Tweet": { select: "Tweet", arguments: { id: "ID!" } },
-  "Query.Tweets": { select: "Tweet", arguments: { skip: "Int", limit: "Int" } },
-  "Query.User": { select: "User", arguments: { id: "ID!" } },
+  "Query.Tweet": { arguments: { id: "ID!" }, select: "Tweet" },
+  "Query.Tweets": { arguments: { limit: "Int", skip: "Int" }, select: "Tweet" },
+  "Query.User": { arguments: { id: "ID!" }, select: "User" },
   "Tweet.Author": { select: "User" },
 };
 
@@ -44,7 +44,7 @@ describe("Document Builder", () => {
       "query",
       "Query",
       lowerSelectionMap({
-        Tweet: { __args: { id: "tweet-1" }, __scalar: true, Author: { __scalar: true } },
+        Tweet: { Author: { __scalar: true }, __args: { id: "tweet-1" }, __scalar: true },
       }),
       documentFieldMap,
       documentScalarFieldLists,
@@ -137,15 +137,15 @@ describe("Document Builder", () => {
   test("Structural Aliases", () => {
     const aliasedSelection: OperationSelection = [
       {
-        field: "Tweets",
         alias: "feed",
         arguments: { limit: 1 },
+        field: "Tweets",
         selection: [{ field: "body" }],
       },
       {
-        field: "User",
         alias: "viewer",
         arguments: { id: "user-1" },
+        field: "User",
         selection: [{ field: "username" }],
       },
     ];
@@ -165,7 +165,7 @@ describe("Document Builder", () => {
         "}",
       ].join("\n"),
     );
-    assert.deepEqual(builtOperation.variables, { limit: 1, id: "user-1" });
+    assert.deepEqual(builtOperation.variables, { id: "user-1", limit: 1 });
     assert.equal(builtOperation.operationName, "QueryFeedViewer");
   });
 
@@ -236,8 +236,8 @@ describe("Document Builder", () => {
   test("Duplicate Field", () => {
     const duplicatedSelection: OperationSelection = [
       {
-        field: "Tweet",
         arguments: { id: "tweet-1" },
+        field: "Tweet",
         selection: [{ field: "body" }, { field: "body" }],
       },
     ];
@@ -249,8 +249,8 @@ describe("Document Builder", () => {
 
   test("Duplicated Response Key", () => {
     const duplicatedSelection: OperationSelection = [
-      { field: "Tweets", alias: "body", selection: [{ field: "body" }] },
-      { field: "User", alias: "body", selection: [{ field: "username" }] },
+      { alias: "body", field: "Tweets", selection: [{ field: "body" }] },
+      { alias: "body", field: "User", selection: [{ field: "username" }] },
     ];
 
     assert.throws(() => buildOperationDocument("query", "Query", duplicatedSelection, documentFieldMap, documentScalarFieldLists), {
@@ -267,9 +267,9 @@ describe("Document Builder", () => {
   test("Nested Alias", () => {
     const nestedAliasSelection: OperationSelection = [
       {
-        field: "Tweet",
         arguments: { id: "tweet-1" },
-        selection: [{ field: "body", alias: "bodyAlias" }],
+        field: "Tweet",
+        selection: [{ alias: "bodyAlias", field: "body" }],
       },
     ];
 
