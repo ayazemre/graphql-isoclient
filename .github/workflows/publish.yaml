@@ -29,4 +29,4 @@ jobs:
       - name: Publish
         run: |
           . ./scripts/repository.sh
-          publish_package currentVersion="${{ inputs.current_version }}" packageType="${{ inputs.package_type }}"
+          publish_package --current_version="${{ inputs.current_version }}" --package_type="${{ inputs.package_type }}"
