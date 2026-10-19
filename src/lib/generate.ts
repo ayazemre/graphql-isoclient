@@ -7,7 +7,7 @@ import type { SchemaModel } from "./schemaModel.ts";
 import { buildSchemaRuntimeData } from "./fieldMap.ts";
 import { runtimeSectionFileNames } from "./runtimeSections.ts";
 import { loadSchemaFromEndpoint, loadSchemaFromIntrospectionJson, resolveRootTypeNames } from "./schema.ts";
-import { assembleGeneratedFile, renderClientConfig, renderGeneratedFileHeader, renderRuntimeDataLiterals } from "./typescriptMap.ts";
+import { assembleGeneratedFile, renderClientConfig, renderRuntimeDataLiterals } from "./typescriptMap.ts";
 import { renderOperationExports, renderTypeSurface } from "./typeSurface.ts";
 
 export async function readRuntimeSectionSource(sectionFileName: RuntimeSectionFileName): Promise<string> {
@@ -57,8 +57,7 @@ export async function renderGeneratedFile(schemaModel: SchemaModel, options: Gen
   const runtimeSections = await renderRuntimeSectionsSource();
 
   return assembleGeneratedFile({
-    clientConfig: renderClientConfig(options.endpoint),
-    fileHeader: renderGeneratedFileHeader(options.introspectionJsonFile ?? options.schemaEndpoint ?? "unknown schema source"),
+    clientConfig: renderClientConfig(options.introspectionJsonFile ?? options.schemaEndpoint ?? "unknown schema source", options.endpoint),
     operationExports: renderOperationExports(schemaModel, rootTypeNames, includeDeprecatedFields),
     runtimeDataLiterals: renderRuntimeDataLiterals(schemaRuntimeData),
     runtimeSections,
