@@ -10,6 +10,11 @@ export type RequestOptions = {
   signal?: AbortSignal;
 };
 
+export type ClientConfig = {
+  endpoint: string | undefined;
+  headers: Record<string, string>;
+};
+
 export type OperationRequest = {
   endpoint: string;
   headers: Record<string, string>;
@@ -23,26 +28,12 @@ export type SubscriptionTransport = {
   subscribe(operationRequest: OperationRequest): AsyncIterableIterator<unknown>;
 };
 
-export type IsoclientError = Error & {
-  graphqlErrors: ReadonlyArray<OperationGraphqlError>;
-  partialData: unknown;
+export type OperationResult<Data = unknown> = {
+  data: Data | null;
+  errors: ReadonlyArray<OperationGraphqlError>;
 };
 
-export function createIsoclientError(
-  errorMessage: string,
-  graphqlErrors: ReadonlyArray<OperationGraphqlError>,
-  partialData: unknown,
-): IsoclientError {
-  const createdError = new Error(errorMessage);
-  createdError.name = "IsoclientError";
-  return Object.assign(createdError, { graphqlErrors, partialData });
-}
-
-export function isIsoclientError(error: unknown): error is IsoclientError {
-  return error instanceof Error && error.name === "IsoclientError";
-}
-
-export async function sendOperationRequest(operationRequest: OperationRequest): Promise<unknown> {
+export async function sendOperationRequest(operationRequest: OperationRequest): Promise<OperationResult> {
   const { endpoint, headers, document, variables, operationName, signal } = operationRequest;
   let operationResponse: Response;
 
@@ -61,6 +52,10 @@ export async function sendOperationRequest(operationRequest: OperationRequest): 
     throw new Error(`GraphQL request failed to reach ${endpoint}`, { cause: requestError });
   }
 
+  if (operationResponse.status !== 200) {
+    throw new Error(`GraphQL request failed with status ${operationResponse.status} for ${endpoint}`);
+  }
+
   const responseText = await operationResponse.text();
   let responsePayload: unknown;
 
@@ -75,17 +70,8 @@ export async function sendOperationRequest(operationRequest: OperationRequest): 
   }
 
   const responseRecord = responsePayload as Record<string, unknown>;
-  const operationErrors = readOperationErrors(responseRecord);
 
-  if (operationErrors.length > 0) {
-    throw createIsoclientError(operationErrors[0].message, operationErrors, responseRecord.data);
-  }
-
-  if (operationResponse.ok === false) {
-    throw new Error(`GraphQL request failed with status ${operationResponse.status} for ${endpoint}`);
-  }
-
-  return responseRecord.data;
+  return { data: readResponseData(responseRecord), errors: readOperationErrors(responseRecord) };
 }
 
 export function startSubscriptionStream(
@@ -103,6 +89,16 @@ export function startSubscriptionStream(
   }
 
   return subscriptionIterator;
+}
+
+function readResponseData(responseRecord: Record<string, unknown>): unknown {
+  const dataValue = responseRecord.data;
+
+  if (dataValue === undefined || dataValue === null) {
+    return null;
+  }
+
+  return dataValue;
 }
 
 function readOperationErrors(responseRecord: Record<string, unknown>): OperationGraphqlError[] {

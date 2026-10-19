@@ -142,7 +142,9 @@ export function renderOperationBuilderTypes(schemaModel: SchemaModel, rootTypeNa
       return `\t${methodName}(${parameterSources.join(", ")}): ${rootTypeName}Builder;`;
     });
     const isSubscriptionRoot = rootTypeName === rootTypeNames.subscription;
-    const runReturnType = isSubscriptionRoot ? `AsyncIterableIterator<${rootTypeName}Result>` : `Promise<${rootTypeName}Result>`;
+    const runReturnType = isSubscriptionRoot
+      ? `AsyncIterableIterator<OperationResult<${rootTypeName}Result>>`
+      : `Promise<OperationResult<${rootTypeName}Result>>`;
     const runParameter = isSubscriptionRoot ? "options: SubscriptionRequestOptions" : "options?: RequestOptions";
 
     return [
@@ -158,22 +160,25 @@ export function renderOperationBuilderTypes(schemaModel: SchemaModel, rootTypeNa
 }
 
 export function renderOperationExports(schemaModel: SchemaModel, rootTypeNames: RootTypeNames, includeDeprecatedFields: boolean): string {
-  const operationExportSources: string[] = [
-    renderOperationBuilderFactory("query", rootTypeNames.query, schemaModel, includeDeprecatedFields),
-    renderOperationEntryPoint("query", rootTypeNames.query),
-  ];
+  const operationExportSources: string[] = [renderOperationEntryPoint("query", rootTypeNames.query)];
 
   if (rootTypeNames.mutation !== undefined) {
-    operationExportSources.push(renderOperationBuilderFactory("mutation", rootTypeNames.mutation, schemaModel, includeDeprecatedFields));
     operationExportSources.push(renderOperationEntryPoint("mutation", rootTypeNames.mutation));
   }
 
   if (rootTypeNames.subscription !== undefined) {
-    operationExportSources.push(renderOperationBuilderFactory("subscription", rootTypeNames.subscription, schemaModel, includeDeprecatedFields));
     operationExportSources.push(renderOperationEntryPoint("subscription", rootTypeNames.subscription));
   }
 
-  operationExportSources.push("export { createIsoclientError, isIsoclientError };");
+  operationExportSources.push(renderOperationBuilderFactory("query", rootTypeNames.query, schemaModel, includeDeprecatedFields));
+
+  if (rootTypeNames.mutation !== undefined) {
+    operationExportSources.push(renderOperationBuilderFactory("mutation", rootTypeNames.mutation, schemaModel, includeDeprecatedFields));
+  }
+
+  if (rootTypeNames.subscription !== undefined) {
+    operationExportSources.push(renderOperationBuilderFactory("subscription", rootTypeNames.subscription, schemaModel, includeDeprecatedFields));
+  }
 
   return operationExportSources.join("\n\n");
 }
@@ -190,7 +195,9 @@ function renderOperationBuilderFactory(
   );
   const isSubscriptionRoot = operationType === "subscription";
   const coreTypeName = isSubscriptionRoot ? "SubscriptionOperationBuilderCore" : "QueryOperationBuilderCore";
-  const runReturnType = isSubscriptionRoot ? `AsyncIterableIterator<${rootTypeName}Result>` : `Promise<${rootTypeName}Result>`;
+  const runReturnType = isSubscriptionRoot
+    ? `AsyncIterableIterator<OperationResult<${rootTypeName}Result>>`
+    : `Promise<OperationResult<${rootTypeName}Result>>`;
 
   return [
     `function create${rootTypeName}Builder(operationBuilderCore: ${coreTypeName}): ${rootTypeName}Builder {`,

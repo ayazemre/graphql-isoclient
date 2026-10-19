@@ -200,7 +200,7 @@ function buildOperationRequest(
   return {
     document: builtOperation.document,
     endpoint,
-    headers: { ...options?.headers },
+    headers: { ...runtimeData.defaultHeaders, ...options?.headers },
     operationName: builtOperation.operationName,
     signal: options?.signal,
     variables: builtOperation.variables,
@@ -211,6 +211,7 @@ export type OperationRuntimeData = {
   fieldMap: RuntimeFieldMap;
   scalarFieldLists: RuntimeScalarFieldLists;
   defaultEndpoint: string | undefined;
+  defaultHeaders: Record<string, string>;
 };
 
 export type SubscriptionRequestOptions = RequestOptions & {

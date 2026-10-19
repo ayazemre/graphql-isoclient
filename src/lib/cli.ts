@@ -15,7 +15,7 @@ export function parseCliOptions(commandLineArguments: ReadonlyArray<string>): Ge
 
   return {
     endpoint: readOptionalFlagValue("endpoint", commandLineArguments),
-    headers: readHeaderFlagValues(commandLineArguments),
+    headers: readFlagHeaderValues("header", commandLineArguments),
     includeDeprecatedFields: readBooleanFlagValue("include-deprecated-fields", commandLineArguments),
     introspectionJsonFile,
     output: outputPath,
@@ -120,19 +120,20 @@ function readBooleanFlagValue(flagName: string, commandLineArguments: ReadonlyAr
   return flagValue === "true";
 }
 
-function readHeaderFlagValues(commandLineArguments: ReadonlyArray<string>): Record<string, string> | undefined {
+function readFlagHeaderValues(flagName: string, commandLineArguments: ReadonlyArray<string>): Record<string, string> | undefined {
   const headerValues: Record<string, string> = {};
+  const flagPrefix = `--${flagName}=`;
 
   for (const commandLineArgument of commandLineArguments) {
-    if (commandLineArgument.startsWith("--header=") === false) {
+    if (commandLineArgument.startsWith(flagPrefix) === false) {
       continue;
     }
 
-    const headerValue = commandLineArgument.slice("--header=".length);
+    const headerValue = commandLineArgument.slice(flagPrefix.length);
     const separatorIndex = headerValue.indexOf(":");
 
     if (separatorIndex <= 0 || separatorIndex === headerValue.length - 1) {
-      throw new Error("flag --header must use the name:value format");
+      throw new Error(`flag --${flagName} must use the name:value format`);
     }
 
     headerValues[headerValue.slice(0, separatorIndex)] = headerValue.slice(separatorIndex + 1);

@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { after, before, beforeEach, describe, test } from "node:test";
 
-import { isIsoclientError, sendOperationRequest, startSubscriptionStream } from "#src/lib/transport.ts";
+import { sendOperationRequest, startSubscriptionStream } from "#src/lib/transport.ts";
 
 import type { OperationRequest, SubscriptionTransport } from "#src/lib/transport.ts";
 import type { RunningCaptureHttpServer } from "../helpers.ts";
@@ -36,7 +36,7 @@ describe("Transport", () => {
 
     const operationResult = await sendOperationRequest(operationRequest);
 
-    assert.deepEqual(operationResult, { ok: true });
+    assert.deepEqual(operationResult, { data: { ok: true }, errors: [] });
 
     const capturedRequest = runningCaptureServer.receivedRequests[0];
     assert.ok(capturedRequest !== undefined);
@@ -49,7 +49,7 @@ describe("Transport", () => {
     });
   });
 
-  test("Graphql Errors", async () => {
+  test("Graphql Errors Are Returned", async () => {
     runningCaptureServer.setResponse(
       200,
       JSON.stringify({
@@ -58,12 +58,11 @@ describe("Transport", () => {
       }),
     );
 
-    await assert.rejects(sendOperationRequest(buildTestOperationRequest()), (rejectionError: unknown) => {
-      assert.ok(isIsoclientError(rejectionError));
-      assert.equal(rejectionError.message, "boom");
-      assert.deepEqual(rejectionError.graphqlErrors, [{ extensions: { code: "BOOM" }, message: "boom", path: ["Tweet"] }]);
-      assert.deepEqual(rejectionError.partialData, { Tweet: null });
-      return true;
+    const operationResult = await sendOperationRequest(buildTestOperationRequest());
+
+    assert.deepEqual(operationResult, {
+      data: { Tweet: null },
+      errors: [{ extensions: { code: "BOOM" }, message: "boom", path: ["Tweet"] }],
     });
   });
 
@@ -78,10 +77,8 @@ describe("Transport", () => {
   test("Http Error With Graphql Errors", async () => {
     runningCaptureServer.setResponse(400, JSON.stringify({ errors: [{ message: "bad query" }] }));
 
-    await assert.rejects(sendOperationRequest(buildTestOperationRequest()), (rejectionError: unknown) => {
-      assert.ok(isIsoclientError(rejectionError));
-      assert.equal(rejectionError.message, "bad query");
-      return true;
+    await assert.rejects(sendOperationRequest(buildTestOperationRequest()), {
+      message: `GraphQL request failed with status 400 for ${runningCaptureServer.endpoint}`,
     });
   });
 

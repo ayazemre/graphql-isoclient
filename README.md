@@ -57,14 +57,29 @@ const userResult = await query()
   .User({ id: "user-1" }, { id: true, username: true })
   .run({ headers: { authorization: `Bearer ${token}` } });
 
-const username = userResult.User?.username;
+const username = userResult.data?.User?.username;
 
 const tweetResult = await mutation().createTweet({ body: "hello" }, { id: true, body: true }).run();
 
-const tweetBody = tweetResult.createTweet?.body;
+const tweetBody = tweetResult.data?.createTweet?.body;
 ```
 
 Each root field of the schema becomes a method on the builder. The first argument carries the field arguments, the second argument carries the selection map for the field, and `run` sends the operation.
+
+### Client configuration
+
+The generated file opens with an editable configuration block. Change the URL and the headers there, no regeneration needed.
+
+```ts
+const clientConfig: ClientConfig = {
+  endpoint: "https://api.example.com/graphql",
+  headers: {
+    authorization: "Bearer token",
+  },
+};
+```
+
+The endpoint is the default for every operation and the headers are sent with every request. Per call options override them.
 
 ### Selection maps
 
@@ -84,7 +99,7 @@ A selection map describes the fields to read.
 ```ts
 const result = await query().User({ id: "user-1" }, { username: true }).as("viewer").run();
 
-const viewerName = result.viewer?.username;
+const viewerName = result.data?.viewer?.username;
 ```
 
 ### Request options
@@ -127,18 +142,25 @@ type SubscriptionTransport = {
 
 ### Errors
 
-GraphQL errors are thrown, never returned. The thrown error is an `IsoclientError` that carries every error and the partial data of the response.
+An operation resolves with the result of the GraphQL operation, a `data` object and an `errors` array. GraphQL errors never throw, so the outcome of every call is one value to inspect.
 
 ```ts
-import { isIsoclientError } from "./graphql/client.ts";
+const result = await query().User({ id: "user-1" }, { username: true }).run();
 
+if (result.errors.length > 0) {
+  for (const operationError of result.errors) {
+    console.log(operationError.message);
+  }
+}
+```
+
+A plain `Error` is thrown only when the request itself fails, which means the endpoint was unreachable, the response body was not JSON, or the server answered with a status other than 200.
+
+```ts
 try {
   await query().User({ id: "user-1" }, { username: true }).run();
-} catch (error) {
-  if (isIsoclientError(error)) {
-    console.log(error.graphqlErrors);
-    console.log(error.partialData);
-  }
+} catch (requestError) {
+  console.log(requestError instanceof Error ? requestError.message : requestError);
 }
 ```
 
@@ -165,6 +187,8 @@ The command line exposes the same options as flags.
 | `--endpoint=<url>`              | Default endpoint baked into the client           |
 | `--header=<name:value>`         | Header for the introspection request, repeatable |
 | `--include-deprecated-fields=`  | `true` or `false`                                |
+
+The client config block in the generated file is meant to be edited by hand after generation, so there is no flag for the headers it holds.
 
 ## Known limitations
 

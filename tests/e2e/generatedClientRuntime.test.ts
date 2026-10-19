@@ -16,13 +16,13 @@ const userResult = await query()
 	.as("viewer")
 	.run({ endpoint: "http://127.0.0.1:9999/graphql", headers: { authorization: "Bearer token" } });
 
-const username: string | null | undefined = userResult.User?.username;
+const username: string | null | undefined = userResult.data?.User?.username;
 
 const tweetResult = await mutation()
 	.createTweet({ body: "hello" }, { body: true, id: true })
 	.run();
 
-const tweetBody: string | null | undefined = tweetResult.createTweet?.body;
+const tweetBody: string | null | undefined = tweetResult.data?.createTweet?.body;
 
 console.log(username, tweetBody);
 `;
@@ -63,7 +63,7 @@ describe("Generated Client Runtime", () => {
         .Tweet({ id: "tweet-1" }, { body: true, id: true })
         .run({ endpoint: runningGraphqlServer.endpoint });
 
-      assert.deepEqual(operationResult, { Tweet: null });
+      assert.deepEqual(operationResult, { data: { Tweet: null }, errors: [] });
     } finally {
       await runningGraphqlServer.stop();
     }
@@ -76,5 +76,5 @@ type GeneratedClientModule = {
 
 type GeneratedQueryBuilder = {
   Tweet(fieldArguments: { id: string }, selectionMap: { body?: boolean; id?: boolean }): GeneratedQueryBuilder;
-  run(options?: { endpoint?: string }): Promise<unknown>;
+  run(options?: { endpoint?: string }): Promise<{ data: unknown; errors: unknown[] }>;
 };

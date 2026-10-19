@@ -34,7 +34,7 @@ describe("Query Builder", () => {
 
     const operationResult = await queryBuilder.run({ headers: { "x-builder-header": "yes" } });
 
-    assert.deepEqual(operationResult, { Tweets: [], User: { username: "emre" } });
+    assert.deepEqual(operationResult, { data: { Tweets: [], User: { username: "emre" } }, errors: [] });
 
     const capturedRequest = runningCaptureServer.receivedRequests[0];
     assert.ok(capturedRequest !== undefined);
@@ -69,7 +69,7 @@ describe("Query Builder", () => {
 
     const operationResult = await queryBuilder.run({ endpoint: runningCaptureServer.endpoint });
 
-    assert.deepEqual(operationResult, { User: { username: "emre" } });
+    assert.deepEqual(operationResult, { data: { User: { username: "emre" } }, errors: [] });
 
     const capturedRequest = runningCaptureServer.receivedRequests[0];
     assert.ok(capturedRequest !== undefined);
@@ -98,7 +98,7 @@ describe("Query Builder", () => {
 
     const operationResult = await queryBuilder.run();
 
-    assert.deepEqual(operationResult, { viewer: null });
+    assert.deepEqual(operationResult, { data: { viewer: null }, errors: [] });
 
     const capturedRequest = runningCaptureServer.receivedRequests[0];
     assert.ok(capturedRequest !== undefined);
@@ -207,6 +207,7 @@ describe("Query Builder", () => {
 function buildTestRuntimeData(defaultEndpoint: string | undefined): OperationRuntimeData {
   return {
     defaultEndpoint,
+    defaultHeaders: {},
     fieldMap: {
       "Query.Tweets": { arguments: { limit: "Int" }, select: "Tweet" },
       "Query.User": { arguments: { id: "ID!" }, select: "User" },
