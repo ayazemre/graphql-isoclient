@@ -53,11 +53,16 @@ export async function sendOperationRequest(operationRequest: OperationRequest): 
     throw new Error(`GraphQL request failed to reach ${endpoint}`, { cause: requestError });
   }
 
+  const responseText = await operationResponse.text();
+
   if (operationResponse.status !== 200) {
-    throw new Error(`GraphQL request failed with status ${operationResponse.status} for ${endpoint}`);
+    const failureDetail = readFailureDetail(responseText);
+
+    throw new Error(
+      `GraphQL request failed with status ${operationResponse.status} for ${endpoint}${failureDetail === undefined ? "" : `: ${failureDetail}`}`,
+    );
   }
 
-  const responseText = await operationResponse.text();
   let responsePayload: unknown;
 
   try {
@@ -90,6 +95,41 @@ export function startSubscriptionStream(
   }
 
   return subscriptionIterator;
+}
+
+function readFailureDetail(responseText: string): string | undefined {
+  let responsePayload: unknown;
+
+  try {
+    responsePayload = JSON.parse(responseText);
+  } catch {
+    return undefined;
+  }
+
+  if (!responsePayload || typeof responsePayload !== "object" || Array.isArray(responsePayload)) {
+    return undefined;
+  }
+
+  const responseRecord = responsePayload as Record<string, unknown>;
+  const errorsValue = responseRecord.errors;
+
+  if (!Array.isArray(errorsValue) || errorsValue.length === 0) {
+    return undefined;
+  }
+
+  const firstErrorValue = errorsValue[0];
+
+  if (!firstErrorValue || typeof firstErrorValue !== "object" || Array.isArray(firstErrorValue)) {
+    return undefined;
+  }
+
+  const firstErrorRecord = firstErrorValue as Record<string, unknown>;
+
+  if (typeof firstErrorRecord.message !== "string") {
+    return undefined;
+  }
+
+  return firstErrorRecord.message;
 }
 
 function readResponseData(responseRecord: Record<string, unknown>): unknown {

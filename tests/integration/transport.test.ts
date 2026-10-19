@@ -92,7 +92,15 @@ describe("Transport", () => {
     runningCaptureServer.setResponse(400, JSON.stringify({ errors: [{ message: "bad query" }] }));
 
     await assert.rejects(sendOperationRequest(buildTestOperationRequest()), {
-      message: `GraphQL request failed with status 400 for ${runningCaptureServer.endpoint}`,
+      message: `GraphQL request failed with status 400 for ${runningCaptureServer.endpoint}: bad query`,
+    });
+  });
+
+  test("Http Error Without Graphql Errors", async () => {
+    runningCaptureServer.setResponse(401, "unauthorized");
+
+    await assert.rejects(sendOperationRequest(buildTestOperationRequest()), {
+      message: `GraphQL request failed with status 401 for ${runningCaptureServer.endpoint}`,
     });
   });
 
