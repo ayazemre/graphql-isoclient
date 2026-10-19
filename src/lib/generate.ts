@@ -11,7 +11,48 @@ import { assembleGeneratedFile, renderClientConfig, renderRuntimeDataLiterals } 
 import { renderOperationExports, renderTypeSurface } from "./typeSurface.ts";
 
 export async function readRuntimeSectionSource(sectionFileName: RuntimeSectionFileName): Promise<string> {
+  const sourceMapFileName = sectionFileName.replace(/\.ts$/, ".js.map");
+  const sourceMapText = await readFile(new URL(`./${sourceMapFileName}`, import.meta.url), "utf8").catch(() => undefined);
+
+  if (sourceMapText !== undefined) {
+    const embeddedSource = readEmbeddedSourceFromMap(sourceMapText, sectionFileName);
+
+    if (embeddedSource !== undefined) {
+      return embeddedSource;
+    }
+  }
+
   return readFile(new URL(`./${sectionFileName}`, import.meta.url), "utf8");
+}
+
+function readEmbeddedSourceFromMap(sourceMapText: string, sectionFileName: string): string | undefined {
+  let sourceMap: unknown;
+
+  try {
+    sourceMap = JSON.parse(sourceMapText);
+  } catch {
+    return undefined;
+  }
+
+  if (!sourceMap || typeof sourceMap !== "object" || Array.isArray(sourceMap)) {
+    return undefined;
+  }
+
+  const sourceMapRecord = sourceMap as { sources?: unknown; sourcesContent?: unknown };
+
+  if (!Array.isArray(sourceMapRecord.sources) || !Array.isArray(sourceMapRecord.sourcesContent)) {
+    return undefined;
+  }
+
+  const sourceIndex = sourceMapRecord.sources.findIndex((sourcePath) => typeof sourcePath === "string" && sourcePath.endsWith(sectionFileName));
+
+  if (sourceIndex === -1) {
+    return undefined;
+  }
+
+  const embeddedSource = sourceMapRecord.sourcesContent[sourceIndex];
+
+  return typeof embeddedSource === "string" ? embeddedSource : undefined;
 }
 
 export function stripRuntimeSectionModuleSyntax(sectionSource: string): string {

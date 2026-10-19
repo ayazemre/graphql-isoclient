@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file.
 
 - The generated file is chain only, the map form is no longer emitted.
 - The runtime no longer depends on the `graphql` package, the schema is read through a local model.
-- The published package ships the runtime sources so an installed copy can generate clients.
+- The published package carries the runtime sources in its source maps, so an installed copy can generate clients.
 - The generator splices whole import statements, so wrapped imports no longer leak into generated files.
 
 ## [0.0.1] - 2026-10-18

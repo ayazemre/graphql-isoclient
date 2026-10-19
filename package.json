@@ -1,6 +1,7 @@
 {
   "name": "graphql-isoclient",
   "version": "0.2.0",
+  "private": false,
   "description": "A graphql client generator",
   "keywords": [
     "client",
