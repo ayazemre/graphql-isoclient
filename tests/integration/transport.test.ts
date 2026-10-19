@@ -54,7 +54,14 @@ describe("Transport", () => {
       200,
       JSON.stringify({
         data: { Tweet: null },
-        errors: [{ extensions: { code: "BOOM" }, message: "boom", path: ["Tweet"] }],
+        errors: [
+          {
+            extensions: { code: "BOOM" },
+            locations: [{ column: 3, line: 2 }],
+            message: "boom",
+            path: ["Tweet"],
+          },
+        ],
       }),
     );
 
@@ -62,7 +69,14 @@ describe("Transport", () => {
 
     assert.deepEqual(operationResult, {
       data: { Tweet: null },
-      errors: [{ extensions: { code: "BOOM" }, message: "boom", path: ["Tweet"] }],
+      errors: [
+        {
+          extensions: { code: "BOOM" },
+          locations: [{ column: 3, line: 2 }],
+          message: "boom",
+          path: ["Tweet"],
+        },
+      ],
     });
   });
 

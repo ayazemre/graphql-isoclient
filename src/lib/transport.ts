@@ -2,6 +2,7 @@ export type OperationGraphqlError = {
   message: string;
   path?: ReadonlyArray<string | number>;
   extensions?: Record<string, unknown>;
+  [fieldName: string]: unknown;
 };
 
 export type RequestOptions = {
@@ -123,22 +124,7 @@ function readOperationErrors(responseRecord: Record<string, unknown>): Operation
       throw new Error(`GraphQL response error at index ${errorIndex} has no message`);
     }
 
-    const operationGraphqlError: OperationGraphqlError = { message: errorRecord.message };
-
-    if (Array.isArray(errorRecord.path)) {
-      operationGraphqlError.path = errorRecord.path as ReadonlyArray<string | number>;
-    }
-
-    if (
-      errorRecord.extensions !== undefined &&
-      typeof errorRecord.extensions === "object" &&
-      errorRecord.extensions !== null &&
-      Array.isArray(errorRecord.extensions) === false
-    ) {
-      operationGraphqlError.extensions = errorRecord.extensions as Record<string, unknown>;
-    }
-
-    return operationGraphqlError;
+    return errorRecord as OperationGraphqlError;
   });
 }
 
