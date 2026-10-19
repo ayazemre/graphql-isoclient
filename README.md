@@ -211,6 +211,8 @@ Repository operations live in `repository.sh` at the repository root. The CI wor
 
 Publishing uses npm trusted publishing, so the repository needs the npm trusted publisher configured for `graphql-isoclient` and the workflow needs the `id-token` permission. The version in `package.json` and the latest `CHANGELOG.md` entry must match, which `check_changelog_version` verifies.
 
+The publish job runs on every push to `main`. The version decides whether a publish happens: the integrity job exports the version from `package.json`, the publish job passes it to `publish_new_version`, and that function compares it against the version already on the registry. A version that is already published is skipped without an error, a version that is newer is published, and a version that does not match the manifest is an error.
+
 ## License
 
 Apache-2.0. The full text is in `LICENSE`.

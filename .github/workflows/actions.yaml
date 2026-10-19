@@ -28,6 +28,7 @@ jobs:
     uses: ./.github/workflows/publish.yaml
     with:
       registry: npm
+      current_version: ${{ needs.integrity.outputs.current_version }}
     permissions:
       contents: read
       id-token: write

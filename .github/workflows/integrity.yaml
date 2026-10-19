@@ -5,11 +5,15 @@ on:
       current_version:
         description: Current package version from package.json
         value: ${{ jobs.integrity.outputs.current_version }}
+      should_publish:
+        description: Whether the current version is newer than the published one
+        value: ${{ jobs.integrity.outputs.should_publish }}
 jobs:
   integrity:
     runs-on: ubuntu-latest
     outputs:
       current_version: ${{ steps.export_version.outputs.current_version }}
+      should_publish: ${{ steps.integrity_checks.outputs.should_publish }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -20,6 +24,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Integrity checks
+        id: integrity_checks
         run: |
           . ./repository.sh
           run_integrity_checks --target_directory="." --output_file="$GITHUB_OUTPUT"

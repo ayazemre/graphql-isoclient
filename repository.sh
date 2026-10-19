@@ -146,8 +146,8 @@ record_should_publish() {
       ;;
   esac
 
-  printf 'should-publish=%s\n' "$publish_decision" >> "$output_file_path"
-  common_print_message --message="should-publish=$publish_decision" --color=green
+  printf 'should_publish=%s\n' "$publish_decision" >> "$output_file_path"
+  common_print_message --message="should_publish=$publish_decision" --color=green
 }
 
 check_package_install() {
@@ -262,6 +262,53 @@ run_scripts() {
   fi
 
   common_print_message --message="npm run $script_name_list complete in $target_directory_path" --color=green
+}
+
+publish_new_version() {
+  local target_directory_path=""
+  local target_registry=""
+  local current_version=""
+  local package_name=""
+  local manifest_version=""
+  local published_version=""
+
+  target_directory_path=$(common_extract_flag_value target_directory --default="." "$@")
+  target_registry=$(common_extract_flag_value registry --default="npm" "$@")
+  current_version=$(common_extract_flag_value current_version "$@")
+
+  common_check_variables target_directory_path target_registry current_version
+  common_check_directory_exists --directory_path="$target_directory_path"
+  common_check_command_exists --command="npm"
+
+  package_name=$(read_package_json_field --target_directory="$target_directory_path" --field="name")
+  manifest_version=$(get_package_version --target_directory="$target_directory_path")
+  common_check_variables package_name manifest_version
+
+  if [ "$current_version" != "$manifest_version" ]; then
+    common_print_message --message="Error: the exported version $current_version does not match the manifest version $manifest_version" --color=red
+
+    exit 1
+  fi
+
+  published_version=$(npm view "$package_name" version 2>/dev/null || true)
+
+  if [ -z "$published_version" ]; then
+    published_version="0.0.0"
+  fi
+
+  if [ "$published_version" = "$current_version" ]; then
+    common_print_message --message="Version $current_version is already published, nothing to publish" --color=yellow
+
+    return 0
+  fi
+
+  if [ "$(printf '%s\n%s\n' "$published_version" "$current_version" | sort -V | head -n 1)" != "$published_version" ]; then
+    common_print_message --message="Error: version $current_version is not newer than the published $published_version" --color=red
+
+    exit 1
+  fi
+
+  publish_package --target_directory="$target_directory_path" --registry="$target_registry"
 }
 
 publish_package() {

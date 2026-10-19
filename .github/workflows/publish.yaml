@@ -6,6 +6,10 @@ on:
         description: Target registry for the package
         required: true
         type: string
+      current_version:
+        description: Version exported by the integrity job
+        required: true
+        type: string
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -33,4 +37,4 @@ jobs:
       - name: Publish
         run: |
           . ./repository.sh
-          publish_package --target_directory="." --registry="${{ inputs.registry }}"
+          publish_new_version --target_directory="." --registry="${{ inputs.registry }}" --current_version="${{ inputs.current_version }}"
