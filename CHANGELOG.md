@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-10-19
+
+### Changed
+
+- The package manifest is written in the form npm normalizes it to, so publishing no longer rewrites the binary entry.
+
 ## [0.2.0] - 2026-10-19
 
 ### Added

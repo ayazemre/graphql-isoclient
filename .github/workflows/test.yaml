@@ -18,4 +18,4 @@ jobs:
       - name: Run tests
         run: |
           . ./scripts/repository.sh
-          run_npm_tests
+          run_tests --target_directory="."

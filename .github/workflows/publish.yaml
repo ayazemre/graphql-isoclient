@@ -2,12 +2,8 @@ name: Publish
 on:
   workflow_call:
     inputs:
-      current_version:
-        description: Current package version from integrity
-        required: true
-        type: string
-      package_type:
-        description: Package type from actions workflow (internal or external)
+      registry:
+        description: Target registry for the package
         required: true
         type: string
 jobs:
@@ -27,12 +23,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build package
-        run: npm run build
+        run: |
+          . ./scripts/repository.sh
+          run_scripts --target_directory="." --scripts="build"
       - name: Check packed package
         run: |
           . ./scripts/repository.sh
-          check_npm_package
+          check_package_install --target_directory="."
       - name: Publish
         run: |
           . ./scripts/repository.sh
-          publish_package --current_version="${{ inputs.current_version }}" --package_type="${{ inputs.package_type }}"
+          publish_package --target_directory="." --registry="${{ inputs.registry }}"

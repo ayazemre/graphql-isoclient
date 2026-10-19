@@ -19,16 +19,14 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Lint & Format
-        run: npm run lint && npm run format -- --check
-      - name: Check CHANGELOG and version sync
+      - name: Integrity checks
         run: |
           . ./scripts/repository.sh
-          check_changelog_version
+          run_integrity_checks --target_directory="." --output_file="$GITHUB_OUTPUT"
       - name: Export current package version
         id: export_version
         run: |
           . ./scripts/repository.sh
-          CURRENT_VERSION=$(get_package_version)
+          CURRENT_VERSION=$(get_package_version --target_directory=".")
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "Exported current_version=$CURRENT_VERSION"

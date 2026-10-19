@@ -27,8 +27,7 @@ jobs:
     needs: [integrity, test]
     uses: ./.github/workflows/publish.yaml
     with:
-      current_version: ${{ needs.integrity.outputs.current_version }}
-      package_type: external
+      registry: npm
     permissions:
       contents: read
       id-token: write
