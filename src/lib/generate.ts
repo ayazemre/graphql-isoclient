@@ -1,14 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import type { RuntimeSectionFileName } from "./runtimeSections.ts";
 import type { SchemaModel } from "./schemaModel.ts";
 
 import { buildSchemaRuntimeData } from "./fieldMap.ts";
+import { runtimeSectionFileNames } from "./runtimeSections.ts";
 import { loadSchemaFromEndpoint, loadSchemaFromIntrospectionJson, resolveRootTypeNames } from "./schema.ts";
 import { assembleGeneratedFile, renderGeneratedFileHeader, renderRuntimeDataLiterals } from "./typescriptMap.ts";
 import { renderOperationExports, renderTypeSurface } from "./typeSurface.ts";
-
-export const runtimeSectionFileNames = ["transport.ts", "documentBuilder.ts", "queryBuilder.ts"] as const;
 
 export async function readRuntimeSectionSource(sectionFileName: RuntimeSectionFileName): Promise<string> {
   return readFile(new URL(`./${sectionFileName}`, import.meta.url), "utf8");
@@ -109,5 +109,3 @@ export type GeneratedFileWriteResult = {
   outputFile: string;
   byteLength: number;
 };
-
-export type RuntimeSectionFileName = (typeof runtimeSectionFileNames)[number];

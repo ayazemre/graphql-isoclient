@@ -1,6 +1,7 @@
 import { describe } from "node:test";
 
 describe("Integration", async function () {
+  await import("./cli.test.ts");
   await import("./dependencyBoundary.test.ts");
   await import("./documentBuilder.test.ts");
   await import("./introspectionInput.test.ts");
