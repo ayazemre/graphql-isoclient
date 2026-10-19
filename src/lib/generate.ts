@@ -5,7 +5,8 @@ import type { SchemaModel } from "./schemaModel.ts";
 
 import { buildSchemaRuntimeData } from "./fieldMap.ts";
 import { loadSchemaFromEndpoint, loadSchemaFromIntrospectionJson, resolveRootTypeNames } from "./schema.ts";
-import { assembleGeneratedFile, renderGeneratedFileHeader, renderOperationExports, renderRuntimeDataLiterals } from "./typescriptMap.ts";
+import { assembleGeneratedFile, renderGeneratedFileHeader, renderRuntimeDataLiterals } from "./typescriptMap.ts";
+import { renderOperationExports, renderTypeSurface } from "./typeSurface.ts";
 
 export const runtimeSectionFileNames = ["transport.ts", "documentBuilder.ts", "queryBuilder.ts"] as const;
 
@@ -14,28 +15,53 @@ export async function readRuntimeSectionSource(sectionFileName: RuntimeSectionFi
 }
 
 export function stripRuntimeSectionModuleSyntax(sectionSource: string): string {
-  return sectionSource
-    .split("\n")
-    .filter((sourceLine) => sourceLine.startsWith("import ") === false)
-    .map((sourceLine) =>
-      sourceLine.startsWith("export function ") || sourceLine.startsWith("export async function ") || sourceLine.startsWith("export const ")
-        ? sourceLine.slice("export ".length)
-        : sourceLine,
-    )
-    .join("\n");
+  const keptSourceLines: string[] = [];
+  let isInsideImportStatement = false;
+
+  for (const sourceLine of sectionSource.split("\n")) {
+    const trimmedSourceLine = sourceLine.trim();
+
+    if (isInsideImportStatement) {
+      if (trimmedSourceLine.endsWith(";")) {
+        isInsideImportStatement = false;
+      }
+
+      continue;
+    }
+
+    if (trimmedSourceLine.startsWith("import ")) {
+      if (trimmedSourceLine.endsWith(";") === false) {
+        isInsideImportStatement = true;
+      }
+
+      continue;
+    }
+
+    keptSourceLines.push(stripExportKeyword(sourceLine));
+  }
+
+  return keptSourceLines.join("\n");
+}
+
+function stripExportKeyword(sourceLine: string): string {
+  const hasExportKeyword =
+    sourceLine.startsWith("export function ") || sourceLine.startsWith("export async function ") || sourceLine.startsWith("export const ");
+
+  return hasExportKeyword ? sourceLine.slice("export ".length) : sourceLine;
 }
 
 export async function renderGeneratedFile(schemaModel: SchemaModel, options: GenerateOptions): Promise<string> {
   const rootTypeNames = resolveRootTypeNames(schemaModel);
-  const schemaRuntimeData = buildSchemaRuntimeData(schemaModel, options.includeDeprecatedFields ?? false);
+  const includeDeprecatedFields = options.includeDeprecatedFields ?? false;
+  const schemaRuntimeData = buildSchemaRuntimeData(schemaModel, includeDeprecatedFields);
   const runtimeSections = await renderRuntimeSectionsSource();
 
   return assembleGeneratedFile({
     fileHeader: renderGeneratedFileHeader(options.introspectionJsonFile ?? options.schemaEndpoint ?? "unknown schema source"),
+    operationExports: renderOperationExports(schemaModel, rootTypeNames, includeDeprecatedFields),
     runtimeDataLiterals: renderRuntimeDataLiterals(schemaRuntimeData, options.endpoint),
-    typeSurface: "",
     runtimeSections,
-    operationExports: renderOperationExports(rootTypeNames),
+    typeSurface: renderTypeSurface(schemaModel, rootTypeNames, includeDeprecatedFields),
   });
 }
 
@@ -47,8 +73,8 @@ export async function generateClient(options: GenerateOptions): Promise<Generate
   await writeFile(options.output, generatedFileText, "utf8");
 
   return {
-    outputFile: options.output,
     byteLength: Buffer.byteLength(generatedFileText, "utf8"),
+    outputFile: options.output,
   };
 }
 

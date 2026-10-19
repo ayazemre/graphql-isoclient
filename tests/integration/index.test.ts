@@ -5,5 +5,6 @@ describe("Integration", async function () {
   await import("./documentBuilder.test.ts");
   await import("./introspectionInput.test.ts");
   await import("./queryBuilder.test.ts");
+  await import("./runtimeSection.test.ts");
   await import("./transport.test.ts");
 });

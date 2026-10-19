@@ -1,7 +1,10 @@
 import { createSchema, createYoga } from "graphql-yoga";
 
+import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingHttpHeaders } from "node:http";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export async function startGraphqlYogaServer(sdlFile: string | URL): Promise<RunningGraphqlServer> {
   const typeDefinitions = await readFile(sdlFile, "utf8");
@@ -44,15 +47,15 @@ export async function* createEventIterator(events: unknown[]): AsyncIterableIter
 
 export async function startCaptureHttpServer(): Promise<RunningCaptureHttpServer> {
   const receivedRequests: CapturedHttpRequest[] = [];
-  const responseState = { statusCode: 200, bodyText: "{}" };
+  const responseState = { bodyText: "{}", statusCode: 200 };
   const httpServer = createServer((request, response) => {
     const requestChunks: Buffer[] = [];
 
     request.on("data", (requestChunk: Buffer) => requestChunks.push(requestChunk));
     request.on("end", () => {
       receivedRequests.push({
-        headers: request.headers,
         bodyText: Buffer.concat(requestChunks).toString("utf8"),
+        headers: request.headers,
       });
       response.writeHead(responseState.statusCode, { "content-type": "application/json" });
       response.end(responseState.bodyText);
@@ -92,6 +95,45 @@ export async function startCaptureHttpServer(): Promise<RunningCaptureHttpServer
   };
 }
 
+export async function runTypeScriptCheck(sourceFilePaths: string[], workingDirectoryPath: string): Promise<TypeScriptCheckResult> {
+  const repositoryRootPath = fileURLToPath(new URL("../", import.meta.url));
+  const typescriptBinaryPath = join(repositoryRootPath, "node_modules", ".bin", "tsc");
+  const typeCheckArguments = [
+    "--noEmit",
+    "--strict",
+    "--target",
+    "esnext",
+    "--module",
+    "esnext",
+    "--moduleResolution",
+    "bundler",
+    "--skipLibCheck",
+    "--allowImportingTsExtensions",
+    ...sourceFilePaths,
+  ];
+
+  const typeCheckResult = await runProcess(typescriptBinaryPath, typeCheckArguments, workingDirectoryPath);
+
+  return { ok: typeCheckResult.exitCode === 0, output: typeCheckResult.output };
+}
+
+async function runProcess(commandPath: string, commandArguments: string[], workingDirectoryPath: string): Promise<ProcessRunResult> {
+  return new Promise((resolve) => {
+    const spawnedProcess = spawn(commandPath, commandArguments, { cwd: workingDirectoryPath });
+    let processOutput = "";
+
+    spawnedProcess.stdout.on("data", (outputChunk: Buffer) => {
+      processOutput += outputChunk.toString("utf8");
+    });
+    spawnedProcess.stderr.on("data", (outputChunk: Buffer) => {
+      processOutput += outputChunk.toString("utf8");
+    });
+    spawnedProcess.on("close", (exitCode) => {
+      resolve({ exitCode: exitCode ?? 1, output: processOutput });
+    });
+  });
+}
+
 export type RunningGraphqlServer = {
   endpoint: string;
   stop(): Promise<void>;
@@ -107,4 +149,14 @@ export type RunningCaptureHttpServer = {
   receivedRequests: CapturedHttpRequest[];
   setResponse(statusCode: number, bodyText: string): void;
   stop(): Promise<void>;
+};
+
+export type TypeScriptCheckResult = {
+  ok: boolean;
+  output: string;
+};
+
+type ProcessRunResult = {
+  exitCode: number;
+  output: string;
 };
