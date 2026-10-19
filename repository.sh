@@ -12,7 +12,7 @@ run_integrity_checks() {
 
   target_directory_path=$(common_extract_flag_value target_directory --default="." "$@")
   output_file_path=$(common_extract_flag_value output_file --default="" "$@")
-  project_item_list="CHANGELOG.md,README.md,oxfmt.config.ts,oxlint.config.ts,package.json,rolldown.config.ts,tsconfig.json,src/,tests/,scripts/"
+  project_item_list="CHANGELOG.md,LICENSE,README.md,oxfmt.config.ts,oxlint.config.ts,package.json,rolldown.config.ts,tsconfig.json,repository.sh,src/,tests/"
 
   common_check_variables target_directory_path project_item_list
   common_check_directory_exists --directory_path="$target_directory_path"

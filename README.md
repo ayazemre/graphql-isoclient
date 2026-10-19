@@ -207,10 +207,10 @@ npm run lint       # run oxlint
 npm run format     # run oxfmt
 ```
 
-Repository operations live in `scripts/repository.sh`. The CI workflows source that file and call `check_changelog_version`, `get_package_version`, `publish_package`, and `run_npm_tests`. `check_npm_package` packs the tarball, installs it into a clean project, and runs the published binary, which is the release gate before `npm publish`.
+Repository operations live in `repository.sh` at the repository root. The CI workflows and local work source that file and call its functions. `run_integrity_checks` covers the structure, changelog, lint and format checks, `run_tests` runs the suite, `check_package_install` packs the tarball, installs it into a clean project and runs the published binary, and `publish_package` publishes the version. `git_push` commits and pushes with a validated `development:` or `maintenance:` message.
 
 Publishing uses npm trusted publishing, so the repository needs the npm trusted publisher configured for `graphql-isoclient` and the workflow needs the `id-token` permission. The version in `package.json` and the latest `CHANGELOG.md` entry must match, which `check_changelog_version` verifies.
 
 ## License
 
-ISC
+Apache-2.0. The full text is in `LICENSE`.

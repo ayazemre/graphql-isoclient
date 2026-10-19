@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - The package manifest is written in the form npm normalizes it to, so publishing no longer rewrites the binary entry.
+- Repository operations moved to `repository.sh` at the repository root, and the CI workflows call its functions.
+- The project is licensed under Apache-2.0, and the license text is included in the repository and in the published package.
 
 ## [0.2.0] - 2026-10-19
 

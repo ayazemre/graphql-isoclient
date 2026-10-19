@@ -14,7 +14,7 @@
   "bugs": {
     "url": "https://github.com/ayazemre/graphql-isoclient/issues"
   },
-  "license": "ISC",
+  "license": "Apache-2.0",
   "author": "Emre Ayaz",
   "repository": {
     "type": "git",

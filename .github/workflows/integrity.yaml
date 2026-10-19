@@ -21,12 +21,12 @@ jobs:
         run: npm ci
       - name: Integrity checks
         run: |
-          . ./scripts/repository.sh
+          . ./repository.sh
           run_integrity_checks --target_directory="." --output_file="$GITHUB_OUTPUT"
       - name: Export current package version
         id: export_version
         run: |
-          . ./scripts/repository.sh
+          . ./repository.sh
           CURRENT_VERSION=$(get_package_version --target_directory=".")
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "Exported current_version=$CURRENT_VERSION"

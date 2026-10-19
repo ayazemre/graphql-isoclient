@@ -17,5 +17,5 @@ jobs:
         run: npm ci
       - name: Run tests
         run: |
-          . ./scripts/repository.sh
+          . ./repository.sh
           run_tests --target_directory="."

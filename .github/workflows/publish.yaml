@@ -24,13 +24,13 @@ jobs:
         run: npm ci
       - name: Build package
         run: |
-          . ./scripts/repository.sh
+          . ./repository.sh
           run_scripts --target_directory="." --scripts="build"
       - name: Check packed package
         run: |
-          . ./scripts/repository.sh
+          . ./repository.sh
           check_package_install --target_directory="."
       - name: Publish
         run: |
-          . ./scripts/repository.sh
+          . ./repository.sh
           publish_package --target_directory="." --registry="${{ inputs.registry }}"
