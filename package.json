@@ -41,7 +41,8 @@
     "test": "dotenvx run -- node --test-global-setup=./tests/setup.ts --test tests/index.test.ts",
     "build": "tsc --noEmit && rolldown -c",
     "format": "oxfmt",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "prepare": "npm run build"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^2.23.0",

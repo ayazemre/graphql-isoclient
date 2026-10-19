@@ -17,7 +17,7 @@ The generated file imports nothing. It has no client instance, no configuration 
 npm install --save-dev graphql-isoclient
 ```
 
-Requires Node.js 24 or newer.
+Requires Node.js 24 or newer to run the generator. The generated client itself runs anywhere `fetch` is available.
 
 ## Generate a client
 
