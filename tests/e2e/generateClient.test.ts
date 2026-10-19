@@ -36,7 +36,7 @@ describe("Client Generation", () => {
       assert.ok(generatedFileText.includes("runOperation(") === false);
       assert.ok(generatedFileText.includes("const clientConfig: ClientConfig = {"));
       assert.ok(generatedFileText.startsWith("const clientConfig: ClientConfig = {"));
-      assert.ok(generatedFileText.includes("The constants in this block are yours to edit."));
+      assert.ok(generatedFileText.includes("// Do not edit below this line."));
       assert.ok(generatedFileText.includes("defaultEndpoint: clientConfig.endpoint"));
       assert.ok(generatedFileText.includes("defaultHeaders: clientConfig.headers"));
       assert.ok(
