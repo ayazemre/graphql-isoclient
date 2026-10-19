@@ -1,0 +1,10 @@
+node_modules/
+.svelte-kit
+.vscode
+.DS_Store
+.env
+build
+coverage
+dist
+node_modules
+temporary

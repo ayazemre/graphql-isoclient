@@ -1,0 +1,34 @@
+name: Integrity
+on:
+  workflow_call:
+    outputs:
+      current_version:
+        description: Current package version from package.json
+        value: ${{ jobs.integrity.outputs.current_version }}
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.export_version.outputs.current_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint & Format
+        run: npm run lint && npm run format -- --check
+      - name: Check CHANGELOG and version sync
+        run: |
+          . ./scripts/repository.sh
+          check_changelog_version
+      - name: Export current package version
+        id: export_version
+        run: |
+          . ./scripts/repository.sh
+          CURRENT_VERSION=$(get_package_version)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Exported current_version=$CURRENT_VERSION"

@@ -1,0 +1,32 @@
+name: Publish
+on:
+  workflow_call:
+    inputs:
+      current_version:
+        description: Current package version from integrity
+        required: true
+        type: string
+      package_type:
+        description: Package type from actions workflow (internal or external)
+        required: true
+        type: string
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: npm
+          registry-url: https://registry.npmjs.org/
+      - name: Install dependencies
+        run: npm ci
+      - name: Publish
+        run: |
+          . ./scripts/repository.sh
+          publish_package currentVersion="${{ inputs.current_version }}" packageType="${{ inputs.package_type }}"

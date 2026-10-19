@@ -1,0 +1,35 @@
+name: CI/CD Pipeline
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+jobs:
+  integrity:
+    uses: ./.github/workflows/integrity.yaml
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit
+
+  test:
+    needs: integrity
+    uses: ./.github/workflows/test.yaml
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit
+
+  publish:
+    if: github.ref == 'refs/heads/main'
+    needs: [integrity, test]
+    uses: ./.github/workflows/publish.yaml
+    with:
+      current_version: ${{ needs.integrity.outputs.current_version }}
+      package_type: external
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
