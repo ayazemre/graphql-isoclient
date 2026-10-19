@@ -2,6 +2,25 @@
 
 # Repository operations for graphql-isoclient. The CI workflows source this file and call its functions.
 
+check_changelog_version() {
+  local package_version="" changelog_version=""
+
+  package_version=$(get_package_version)
+  changelog_version=$(get_changelog_version)
+
+  check_variables package_version changelog_version
+
+  if [ "$package_version" != "$changelog_version" ]; then
+    print_message --message="CHANGELOG version $changelog_version does not match package version $package_version" --message_color=red
+
+    return 1
+  fi
+
+  print_message --message="CHANGELOG version $changelog_version matches package version $package_version" --message_color=green
+
+  return 0
+}
+
 publish_package() {
   local current_version="" package_type=""
 
@@ -36,21 +55,41 @@ publish_package() {
   return 1
 }
 
-check_changelog_version() {
-  local package_version="" changelog_version=""
+check_npm_package() {
+  local package_version="" temporary_directory_path="" tarball_path=""
 
   package_version=$(get_package_version)
-  changelog_version=$(get_changelog_version)
+  temporary_directory_path=$(mktemp -d)
+  tarball_path="$temporary_directory_path/graphql-isoclient-${package_version}.tgz"
 
-  check_variables package_version changelog_version
-
-  if [ "$package_version" != "$changelog_version" ]; then
-    print_message --message="CHANGELOG version $changelog_version does not match package version $package_version" --message_color=red
+  if ! npm pack --pack-destination "$temporary_directory_path" > /dev/null; then
+    print_message --message="npm pack failed" --message_color=red
+    rm -rf "$temporary_directory_path"
 
     return 1
   fi
 
-  print_message --message="CHANGELOG version $changelog_version matches package version $package_version" --message_color=green
+  mkdir -p "$temporary_directory_path/project"
+
+  printf '%s\n' "{" "  \"name\": \"package-smoke-test\"," "  \"private\": true," "  \"version\": \"0.0.0\"" "}" > "$temporary_directory_path/project/package.json"
+
+  if ! npm install --prefix "$temporary_directory_path/project" "$tarball_path" --no-audit --no-fund --offline > /dev/null; then
+    print_message --message="npm install of the packed package failed" --message_color=red
+    rm -rf "$temporary_directory_path"
+
+    return 1
+  fi
+
+  if ! "$temporary_directory_path/project/node_modules/.bin/graphql-isoclient" help > /dev/null; then
+    print_message --message="the packed package did not run its binary" --message_color=red
+    rm -rf "$temporary_directory_path"
+
+    return 1
+  fi
+
+  rm -rf "$temporary_directory_path"
+
+  print_message --message="Packed package installs and runs" --message_color=green
 
   return 0
 }

@@ -183,7 +183,9 @@ npm run lint       # run oxlint
 npm run format     # run oxfmt
 ```
 
-Repository operations live in `scripts/repository.sh`. The CI workflows source that file and call `check_changelog_version`, `get_package_version`, `publish_package`, and `run_npm_tests`.
+Repository operations live in `scripts/repository.sh`. The CI workflows source that file and call `check_changelog_version`, `get_package_version`, `publish_package`, and `run_npm_tests`. `check_npm_package` packs the tarball, installs it into a clean project, and runs the published binary, which is the release gate before `npm publish`.
+
+Publishing uses npm trusted publishing, so the repository needs the npm trusted publisher configured for `graphql-isoclient` and the workflow needs the `id-token` permission. The version in `package.json` and the latest `CHANGELOG.md` entry must match, which `check_changelog_version` verifies.
 
 ## License
 
