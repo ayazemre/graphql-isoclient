@@ -4,13 +4,6 @@ A GraphQL client generator that emits one self-contained, fully typed TypeScript
 
 The generated file imports nothing. It has no client instance, no configuration file, and no runtime dependency. It exposes plain functions that build a request, send it, and return the typed result.
 
-## Why
-
-- No runtime dependency. The generated file has zero imports, so the `graphql` package never reaches the consumer.
-- No client instance. `query()`, `mutation()`, and `subscription()` are plain functions.
-- Typed end to end. Argument types, request maps, response types, and result types are generated from the schema.
-- Plain data. A request is a plain object, so it nests to any depth and carries its own arguments at every level.
-
 ## Install
 
 ```bash
