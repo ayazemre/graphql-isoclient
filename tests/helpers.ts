@@ -39,7 +39,7 @@ export async function startGraphqlYogaServer(sdlFile: string | URL): Promise<Run
   };
 }
 
-export async function* createEventIterator(events: unknown[]): AsyncIterableIterator<unknown> {
+export async function* createEventIterator<T>(events: T[]): AsyncIterableIterator<T> {
   for (const event of events) {
     yield event;
   }

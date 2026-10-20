@@ -1,17 +1,17 @@
 import { strict as assert } from "node:assert";
 import { after, before, beforeEach, describe, test } from "node:test";
 
-import { createOperationBuilderCore } from "#src/lib/queryBuilder.ts";
+import { runOperation, runSubscriptionOperation } from "#src/lib/queryBuilder.ts";
 
 import type { OperationRuntimeData } from "#src/lib/queryBuilder.ts";
-import type { OperationRequest, SubscriptionTransport } from "#src/lib/transport.ts";
+import type { OperationRequest, OperationResponse, SubscriptionTransport } from "#src/lib/transport.ts";
 import type { RunningCaptureHttpServer } from "../helpers.ts";
 
 import { createEventIterator, startCaptureHttpServer } from "../helpers.ts";
 
 let runningCaptureServer: RunningCaptureHttpServer;
 
-describe("Query Builder", () => {
+describe("Operation Runner", () => {
   before(async () => {
     runningCaptureServer = await startCaptureHttpServer();
   });
@@ -25,16 +25,21 @@ describe("Query Builder", () => {
     await runningCaptureServer.stop();
   });
 
-  test("Chained Fields And Options", async () => {
+  test("Map And Options", async () => {
     runningCaptureServer.setResponse(200, JSON.stringify({ data: { Tweets: [], User: { username: "emre" } } }));
 
-    const queryBuilder = createOperationBuilderCore("query", "Query", buildTestRuntimeData(runningCaptureServer.endpoint))
-      .appendField("User", { id: "user-1" }, { username: true })
-      .appendField("Tweets", { limit: 2 }, { body: true });
+    const operationData = await runOperation(
+      "query",
+      "Query",
+      {
+        Tweets: { __arguments: { limit: 2 }, body: true },
+        User: { __arguments: { id: "user-1" }, username: true },
+      },
+      buildTestRuntimeData(runningCaptureServer.endpoint),
+      { headers: { "x-builder-header": "yes" } },
+    );
 
-    const operationResult = await queryBuilder.run({ headers: { "x-builder-header": "yes" } });
-
-    assert.deepEqual(operationResult, { data: { Tweets: [], User: { username: "emre" } }, errors: [] });
+    assert.deepEqual(operationData, { Tweets: [], User: { username: "emre" } });
 
     const capturedRequest = runningCaptureServer.receivedRequests[0];
     assert.ok(capturedRequest !== undefined);
@@ -55,129 +60,97 @@ describe("Query Builder", () => {
     });
   });
 
+  test("Nested Field Arguments", async () => {
+    runningCaptureServer.setResponse(200, JSON.stringify({ data: { Tweet: { Author: { username: "emre" } } } }));
+
+    const operationData = await runOperation(
+      "query",
+      "Query",
+      {
+        Tweet: {
+          Author: { __arguments: { id: "user-1" }, username: true },
+          __arguments: { id: "tweet-1" },
+        },
+      },
+      buildTestRuntimeData(runningCaptureServer.endpoint),
+      undefined,
+    );
+
+    assert.deepEqual(operationData, { Tweet: { Author: { username: "emre" } } });
+
+    const capturedRequest = runningCaptureServer.receivedRequests[0];
+    assert.ok(capturedRequest !== undefined);
+    assert.deepEqual(JSON.parse(capturedRequest.bodyText), {
+      operationName: "QueryTweet",
+      query: [
+        "query QueryTweet($id: ID!, $id_2: ID!) {",
+        "  Tweet(id: $id) {",
+        "    Author(id: $id_2) {",
+        "      username",
+        "    }",
+        "  }",
+        "}",
+      ].join("\n"),
+      variables: { id: "tweet-1", id_2: "user-1" },
+    });
+  });
+
+  test("Arguments Marker Rejects A Non Object", () => {
+    assert.throws(
+      () =>
+        runOperation(
+          "query",
+          "Query",
+          { Tweet: { __arguments: "not-an-object" as never, body: true } },
+          buildTestRuntimeData(runningCaptureServer.endpoint),
+          undefined,
+        ),
+      { message: "field arguments must be an object" },
+    );
+  });
+
   test("Endpoint From Request Options", async () => {
     runningCaptureServer.setResponse(200, JSON.stringify({ data: { User: { username: "emre" } } }));
     const runtimeData = buildTestRuntimeData("http://127.0.0.1:1/graphql");
 
-    const queryBuilder = createOperationBuilderCore("query", "Query", runtimeData).appendField(
-      "User",
-      { id: "user-1" },
-      {
-        username: true,
-      },
-    );
+    const operationData = await runOperation("query", "Query", { User: { __arguments: { id: "user-1" }, username: true } }, runtimeData, {
+      endpoint: runningCaptureServer.endpoint,
+    });
 
-    const operationResult = await queryBuilder.run({ endpoint: runningCaptureServer.endpoint });
-
-    assert.deepEqual(operationResult, { data: { User: { username: "emre" } }, errors: [] });
+    assert.deepEqual(operationData, { User: { username: "emre" } });
 
     const capturedRequest = runningCaptureServer.receivedRequests[0];
     assert.ok(capturedRequest !== undefined);
     assert.ok(capturedRequest.bodyText.includes("query QueryUser("));
   });
 
-  test("Missing Endpoint", async () => {
+  test("Missing Endpoint", () => {
     const runtimeData = buildTestRuntimeData(undefined);
-    const queryBuilder = createOperationBuilderCore("query", "Query", runtimeData).appendField(
-      "User",
-      { id: "user-1" },
-      {
-        username: true,
-      },
-    );
 
-    await assert.rejects(queryBuilder.run(), { message: /no endpoint is configured/ });
-  });
-
-  test("Alias On Chained Field", async () => {
-    runningCaptureServer.setResponse(200, JSON.stringify({ data: { viewer: null } }));
-
-    const queryBuilder = createOperationBuilderCore("query", "Query", buildTestRuntimeData(runningCaptureServer.endpoint))
-      .appendField("User", { id: "user-1" }, { username: true })
-      .as("viewer");
-
-    const operationResult = await queryBuilder.run();
-
-    assert.deepEqual(operationResult, { data: { viewer: null }, errors: [] });
-
-    const capturedRequest = runningCaptureServer.receivedRequests[0];
-    assert.ok(capturedRequest !== undefined);
-    assert.deepEqual(JSON.parse(capturedRequest.bodyText), {
-      operationName: "QueryViewer",
-      query: ["query QueryViewer($id: ID!) {", "  viewer: User(id: $id) {", "    username", "  }", "}"].join("\n"),
-      variables: { id: "user-1" },
+    assert.throws(() => runOperation("query", "Query", { User: { __arguments: { id: "user-1" }, username: true } }, runtimeData, undefined), {
+      message: /no endpoint is configured/,
     });
   });
 
-  test("Alias Requires Appended Field", () => {
-    const queryBuilder = createOperationBuilderCore("query", "Query", buildTestRuntimeData(runningCaptureServer.endpoint));
-
-    assert.throws(() => queryBuilder.as("viewer"), { message: "as requires an appended field" });
-  });
-
-  test("Alias Rejected When Already Set", () => {
-    const queryBuilder = createOperationBuilderCore("query", "Query", buildTestRuntimeData(runningCaptureServer.endpoint))
-      .appendField("User", { id: "user-1" }, { username: true })
-      .as("viewer");
-
-    assert.throws(() => queryBuilder.as("author"), { message: "field User already has an alias" });
-  });
-
-  test("Runs Are Isolated Between Builders", async () => {
+  test("Empty Selection", () => {
     const runtimeData = buildTestRuntimeData(runningCaptureServer.endpoint);
-    const baseQueryBuilder = createOperationBuilderCore("query", "Query", runtimeData).appendField(
-      "User",
-      { id: "user-1" },
-      {
-        username: true,
-      },
-    );
-    const aliasedQueryBuilder = baseQueryBuilder.as("viewer");
 
-    await baseQueryBuilder.run();
-    await aliasedQueryBuilder.run();
-
-    const capturedRequests = runningCaptureServer.receivedRequests;
-    assert.equal(capturedRequests.length, 2);
-
-    const firstCapturedRequest = capturedRequests[0];
-    const secondCapturedRequest = capturedRequests[1];
-    assert.ok(firstCapturedRequest !== undefined);
-    assert.ok(secondCapturedRequest !== undefined);
-
-    assert.ok(firstCapturedRequest.bodyText.includes("query QueryUser("));
-    assert.ok(firstCapturedRequest.bodyText.includes("viewer") === false);
-    assert.ok(secondCapturedRequest.bodyText.includes("query QueryViewer("));
+    assert.throws(() => runOperation("query", "Query", {}, runtimeData, undefined), { message: "selection for Query is empty" });
   });
 
-  test("Run Rejects Missing Selection", async () => {
-    const runtimeData = buildTestRuntimeData(runningCaptureServer.endpoint);
-    const queryBuilder = createOperationBuilderCore("query", "Query", runtimeData).appendField("User", { id: "user-1" }, undefined);
-
-    await assert.rejects(queryBuilder.run(), { message: "field User on type Query requires a selection" });
-  });
-
-  test("Run Rejects Empty Selection", async () => {
-    const runtimeData = buildTestRuntimeData(runningCaptureServer.endpoint);
-    const queryBuilder = createOperationBuilderCore("query", "Query", runtimeData);
-
-    await assert.rejects(queryBuilder.run(), { message: "selection for Query is empty" });
-  });
-
-  test("Subscription Builder Streams Through Transport", async () => {
+  test("Subscription Operation Streams Through Transport", async () => {
     const receivedOperationRequests: OperationRequest[] = [];
     const testTransport: SubscriptionTransport = {
       subscribe: (operationRequest) => {
         receivedOperationRequests.push(operationRequest);
-        return createEventIterator([{ notificationAdded: { id: "n-1" } }]);
+        return createEventIterator([{ data: { notificationAdded: { id: "n-1" } } }]);
       },
     };
     const runtimeData = buildTestRuntimeData("http://subscription.invalid/graphql");
-    const subscriptionBuilder = createOperationBuilderCore("subscription", "Subscription", runtimeData).appendField("notificationAdded", undefined, {
-      __scalar: true,
-    });
 
-    const subscriptionIterator = subscriptionBuilder.run({ transport: testTransport });
+    const subscriptionIterator = runSubscriptionOperation("Subscription", { notificationAdded: { __scalar: true } }, runtimeData, {
+      transport: testTransport,
+    });
     const firstEvent = await subscriptionIterator.next();
 
     assert.deepEqual(firstEvent, { done: false, value: { notificationAdded: { id: "n-1" } } });
@@ -194,13 +167,11 @@ describe("Query Builder", () => {
 
   test("Subscription Run Requires Endpoint", () => {
     const runtimeData = buildTestRuntimeData(undefined);
-    const subscriptionBuilder = createOperationBuilderCore("subscription", "Subscription", runtimeData).appendField("notificationAdded", undefined, {
-      __scalar: true,
-    });
 
-    assert.throws(() => subscriptionBuilder.run({ transport: createTestTransport() }), {
-      message: /no endpoint is configured/,
-    });
+    assert.throws(
+      () => runSubscriptionOperation("Subscription", { notificationAdded: { __scalar: true } }, runtimeData, { transport: createTestTransport() }),
+      { message: /no endpoint is configured/ },
+    );
   });
 });
 
@@ -209,9 +180,11 @@ function buildTestRuntimeData(defaultEndpoint: string | undefined): OperationRun
     defaultEndpoint,
     defaultHeaders: {},
     fieldMap: {
+      "Query.Tweet": { arguments: { id: "ID!" }, select: "Tweet" },
       "Query.Tweets": { arguments: { limit: "Int" }, select: "Tweet" },
       "Query.User": { arguments: { id: "ID!" }, select: "User" },
       "Subscription.notificationAdded": { select: "Notification" },
+      "Tweet.Author": { arguments: { id: "ID!" }, select: "User" },
     },
     scalarFieldLists: {
       Notification: ["id", "type"],
@@ -226,3 +199,5 @@ function createTestTransport(): SubscriptionTransport {
     subscribe: () => createEventIterator([]),
   };
 }
+
+export type { OperationResponse };

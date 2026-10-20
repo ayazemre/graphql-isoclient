@@ -3,7 +3,7 @@ import { after, before, beforeEach, describe, test } from "node:test";
 
 import { sendOperationRequest, startSubscriptionStream } from "#src/lib/transport.ts";
 
-import type { OperationRequest, SubscriptionTransport } from "#src/lib/transport.ts";
+import type { OperationRequest, OperationResponse, SubscriptionTransport } from "#src/lib/transport.ts";
 import type { RunningCaptureHttpServer } from "../helpers.ts";
 
 import { createEventIterator, startCaptureHttpServer } from "../helpers.ts";
@@ -34,9 +34,9 @@ describe("Transport", () => {
       variables: { limit: 2 },
     });
 
-    const operationResult = await sendOperationRequest(operationRequest);
+    const operationData = await sendOperationRequest(operationRequest);
 
-    assert.deepEqual(operationResult, { data: { ok: true }, errors: [] });
+    assert.deepEqual(operationData, { ok: true });
 
     const capturedRequest = runningCaptureServer.receivedRequests[0];
     assert.ok(capturedRequest !== undefined);
@@ -49,7 +49,7 @@ describe("Transport", () => {
     });
   });
 
-  test("Graphql Errors Are Returned", async () => {
+  test("Graphql Errors Are Thrown", async () => {
     runningCaptureServer.setResponse(
       200,
       JSON.stringify({
@@ -65,19 +65,18 @@ describe("Transport", () => {
       }),
     );
 
-    const operationResult = await sendOperationRequest(buildTestOperationRequest());
+    const operationError = await captureOperationError(sendOperationRequest(buildTestOperationRequest()));
 
-    assert.deepEqual(operationResult, {
-      data: { Tweet: null },
-      errors: [
-        {
-          extensions: { code: "BOOM" },
-          locations: [{ column: 3, line: 2 }],
-          message: "boom",
-          path: ["Tweet"],
-        },
-      ],
-    });
+    assert.equal(operationError.message, "GraphQL request failed: boom");
+    assert.deepEqual(operationError.errors, [
+      {
+        extensions: { code: "BOOM" },
+        locations: [{ column: 3, line: 2 }],
+        message: "boom",
+        path: ["Tweet"],
+      },
+    ]);
+    assert.deepEqual(operationError.data, { Tweet: null });
   });
 
   test("Http Error Status", async () => {
@@ -91,16 +90,25 @@ describe("Transport", () => {
   test("Http Error With Graphql Errors", async () => {
     runningCaptureServer.setResponse(400, JSON.stringify({ errors: [{ message: "bad query" }] }));
 
-    await assert.rejects(sendOperationRequest(buildTestOperationRequest()), {
-      message: `GraphQL request failed with status 400 for ${runningCaptureServer.endpoint}: bad query`,
-    });
+    const operationError = await captureOperationError(sendOperationRequest(buildTestOperationRequest()));
+
+    assert.equal(operationError.message, `GraphQL request failed with status 400 for ${runningCaptureServer.endpoint}: bad query`);
+    assert.deepEqual(operationError.errors, [{ message: "bad query" }]);
   });
 
   test("Http Error Without Graphql Errors", async () => {
-    runningCaptureServer.setResponse(401, "unauthorized");
+    runningCaptureServer.setResponse(401, JSON.stringify({ message: "unauthorized" }));
 
     await assert.rejects(sendOperationRequest(buildTestOperationRequest()), {
       message: `GraphQL request failed with status 401 for ${runningCaptureServer.endpoint}`,
+    });
+  });
+
+  test("Missing Data", async () => {
+    runningCaptureServer.setResponse(200, JSON.stringify({}));
+
+    await assert.rejects(sendOperationRequest(buildTestOperationRequest()), {
+      message: `GraphQL response did not contain data for ${runningCaptureServer.endpoint}`,
     });
   });
 
@@ -130,7 +138,7 @@ describe("Transport", () => {
     const testTransport: SubscriptionTransport = {
       subscribe: (operationRequest) => {
         receivedOperationRequests.push(operationRequest);
-        return createEventIterator([{ tick: 1 }, { tick: 2 }]);
+        return createEventIterator([{ data: { notificationAdded: { id: "n-1" } } }]);
       },
     };
     const operationRequest = buildTestOperationRequest();
@@ -138,8 +146,17 @@ describe("Transport", () => {
     const subscriptionIterator = startSubscriptionStream(operationRequest, testTransport);
     const firstEvent = await subscriptionIterator.next();
 
-    assert.deepEqual(firstEvent, { done: false, value: { tick: 1 } });
-    assert.deepEqual(receivedOperationRequests, [operationRequest]);
+    assert.deepEqual(firstEvent, { done: false, value: { notificationAdded: { id: "n-1" } } });
+  });
+
+  test("Subscription Errors Are Thrown", async () => {
+    const testTransport: SubscriptionTransport = {
+      subscribe: () => createEventIterator([{ data: null, errors: [{ message: "subscription failed" }] }]),
+    };
+
+    const subscriptionIterator = startSubscriptionStream(buildTestOperationRequest(), testTransport);
+
+    await assert.rejects(subscriptionIterator.next(), { message: "GraphQL request failed: subscription failed" });
   });
 
   test("Missing Subscription Transport", () => {
@@ -149,13 +166,21 @@ describe("Transport", () => {
   });
 
   test("Invalid Subscription Transport", () => {
-    const invalidTransport = { subscribe: () => ({}) } as unknown as SubscriptionTransport;
-
-    assert.throws(() => startSubscriptionStream(buildTestOperationRequest(), invalidTransport), {
+    assert.throws(() => startSubscriptionStream(buildTestOperationRequest(), { subscribe: () => ({}) as never }), {
       message: "subscription transport subscribe must return an async iterable",
     });
   });
 });
+
+async function captureOperationError(operation: Promise<unknown>): Promise<Error & { errors: unknown; data: unknown }> {
+  try {
+    await operation;
+  } catch (operationError) {
+    return operationError as Error & { errors: unknown; data: unknown };
+  }
+
+  throw new Error("the operation was expected to throw");
+}
 
 function buildTestOperationRequest(overrides: Partial<OperationRequest> = {}): OperationRequest {
   return {
@@ -167,3 +192,5 @@ function buildTestOperationRequest(overrides: Partial<OperationRequest> = {}): O
     ...overrides,
   };
 }
+
+export type { OperationResponse };

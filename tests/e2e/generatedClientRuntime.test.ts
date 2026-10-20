@@ -11,18 +11,17 @@ import { runTypeScriptCheck, startGraphqlYogaServer } from "../helpers.ts";
 
 const consumerSource = `import { mutation, query } from "./isoclient.ts";
 
-const userResult = await query()
-	.User({ id: "user-1" }, { id: true, username: true })
-	.as("viewer")
-	.run({ endpoint: "http://127.0.0.1:9999/graphql", headers: { authorization: "Bearer token" } });
+const userResult = await query({
+  User: { __arguments: { id: "user-1" }, id: true, username: true },
+});
 
-const username: string | null | undefined = userResult.data?.User?.username;
+const username: string | null | undefined = userResult.User?.username;
 
-const tweetResult = await mutation()
-	.createTweet({ body: "hello" }, { body: true, id: true })
-	.run();
+const tweetResult = await mutation({
+  createTweet: { __arguments: { body: "hello" }, body: true, id: true },
+});
 
-const tweetBody: string | null | undefined = tweetResult.data?.createTweet?.body;
+const tweetBody: string | null | undefined = tweetResult.createTweet?.body;
 
 console.log(username, tweetBody);
 `;
@@ -47,7 +46,7 @@ describe("Generated Client Runtime", () => {
     }
   });
 
-  test("Chained Query Against Live Server", async () => {
+  test("Map Query Against Live Server", async () => {
     const runningGraphqlServer = await startGraphqlYogaServer(new URL("../sampeSchema.graphql", import.meta.url));
 
     try {
@@ -58,12 +57,12 @@ describe("Generated Client Runtime", () => {
 
       const generatedClient = (await import(pathToFileURL(outputFile).href)) as GeneratedClientModule;
 
-      const operationResult = await generatedClient
-        .query()
-        .Tweet({ id: "tweet-1" }, { body: true, id: true })
-        .run({ endpoint: runningGraphqlServer.endpoint });
+      const operationData = await generatedClient.query(
+        { Tweet: { __arguments: { id: "tweet-1" }, body: true, id: true } },
+        { endpoint: runningGraphqlServer.endpoint },
+      );
 
-      assert.deepEqual(operationResult, { data: { Tweet: null }, errors: [] });
+      assert.deepEqual(operationData, { Tweet: null });
     } finally {
       await runningGraphqlServer.stop();
     }
@@ -71,10 +70,8 @@ describe("Generated Client Runtime", () => {
 });
 
 type GeneratedClientModule = {
-  query(): GeneratedQueryBuilder;
-};
-
-type GeneratedQueryBuilder = {
-  Tweet(fieldArguments: { id: string }, selectionMap: { body?: boolean; id?: boolean }): GeneratedQueryBuilder;
-  run(options?: { endpoint?: string }): Promise<{ data: unknown; errors: unknown[] }>;
+  query(
+    requestMap: { Tweet?: { __arguments?: { id: string }; body?: boolean; id?: boolean } },
+    options?: { endpoint?: string },
+  ): Promise<{ Tweet?: unknown }>;
 };

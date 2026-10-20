@@ -65,8 +65,7 @@ export type GeneratedFileParts = {
 
 export type GeneratedTypeSurfaceParts = {
   argumentTypes: string;
-  selectionMapTypes: string;
+  requestTypes: string;
   responseTypes: string;
   resultTypes: string;
-  operationBuilderTypes: string;
 };

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-10-20
+
+### Changed
+
+- The generated client exposes one plain function per operation type, `query`, `mutation`, and `subscription`. The first parameter is the request map and the second is the request options.
+- A request map is plain data that nests to any depth. Each field carries its own arguments in `__arguments` and its own selection, and the argument names and types are checked against the schema at every level.
+- An operation resolves with the data of the operation. A GraphQL error is thrown as an `OperationError` that carries the reported errors and the partial data the server sent with them.
+- The chain builder, the `as` alias method, and the `data` and `errors` result object are removed.
+
+### Added
+
+- The `__scalar` marker on any request map selects every scalar field of that type.
+
 ## [0.2.1] - 2026-10-19
 
 ### Changed

@@ -99,7 +99,7 @@ export async function renderGeneratedFile(schemaModel: SchemaModel, options: Gen
 
   return assembleGeneratedFile({
     clientConfig: renderClientConfig(options.introspectionJsonFile ?? options.schemaEndpoint ?? "unknown schema source", options.endpoint),
-    operationExports: renderOperationExports(schemaModel, rootTypeNames, includeDeprecatedFields),
+    operationExports: renderOperationExports(rootTypeNames),
     runtimeDataLiterals: renderRuntimeDataLiterals(schemaRuntimeData),
     runtimeSections,
     typeSurface: renderTypeSurface(schemaModel, rootTypeNames, includeDeprecatedFields),

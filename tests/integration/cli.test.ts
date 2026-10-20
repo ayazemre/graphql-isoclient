@@ -84,8 +84,8 @@ describe("Command Line Interface", () => {
 
     const generatedFileText = await readFile(outputFile, "utf8");
 
-    assert.ok(generatedFileText.includes("export function query(): QueryBuilder"));
-    assert.ok(generatedFileText.includes("export type QueryBuilder = {"));
+    assert.ok(generatedFileText.includes("export function query(requestMap: QueryRequest"));
+    assert.ok(generatedFileText.includes("export type QueryRequest = {"));
   });
 });
 

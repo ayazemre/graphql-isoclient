@@ -25,16 +25,21 @@ export type OperationRequest = {
   signal?: AbortSignal;
 };
 
-export type SubscriptionTransport = {
-  subscribe(operationRequest: OperationRequest): AsyncIterableIterator<unknown>;
+export type OperationResponse = {
+  data?: unknown;
+  errors?: ReadonlyArray<OperationGraphqlError>;
 };
 
-export type OperationResult<Data = unknown> = {
-  data: Data | null;
+export type OperationError = Error & {
   errors: ReadonlyArray<OperationGraphqlError>;
+  data: unknown;
 };
 
-export async function sendOperationRequest(operationRequest: OperationRequest): Promise<OperationResult> {
+export type SubscriptionTransport = {
+  subscribe(operationRequest: OperationRequest): AsyncIterableIterator<OperationResponse>;
+};
+
+export async function sendOperationRequest(operationRequest: OperationRequest): Promise<unknown> {
   const { endpoint, headers, document, variables, operationName, signal } = operationRequest;
   let operationResponse: Response;
 
@@ -54,30 +59,24 @@ export async function sendOperationRequest(operationRequest: OperationRequest): 
   }
 
   const responseText = await operationResponse.text();
+  const responseRecord = readResponseRecord(responseText, operationResponse.status, endpoint);
+  const operationErrors = readOperationErrors(responseRecord);
+
+  if (operationErrors.length > 0) {
+    throw createOperationError(operationErrors, readResponseData(responseRecord), endpoint, operationResponse.status);
+  }
 
   if (operationResponse.status !== 200) {
-    const failureDetail = readFailureDetail(responseText);
-
-    throw new Error(
-      `GraphQL request failed with status ${operationResponse.status} for ${endpoint}${failureDetail === undefined ? "" : `: ${failureDetail}`}`,
-    );
+    throw new Error(`GraphQL request failed with status ${operationResponse.status} for ${endpoint}`);
   }
 
-  let responsePayload: unknown;
+  const responseData = readResponseData(responseRecord);
 
-  try {
-    responsePayload = JSON.parse(responseText);
-  } catch (parseError) {
-    throw new Error(`GraphQL response is not valid JSON with status ${operationResponse.status} for ${endpoint}`, { cause: parseError });
+  if (responseData === null) {
+    throw new Error(`GraphQL response did not contain data for ${endpoint}`);
   }
 
-  if (!responsePayload || typeof responsePayload !== "object" || Array.isArray(responsePayload)) {
-    throw new Error(`GraphQL response is not an object for ${endpoint}`);
-  }
-
-  const responseRecord = responsePayload as Record<string, unknown>;
-
-  return { data: readResponseData(responseRecord), errors: readOperationErrors(responseRecord) };
+  return responseData;
 }
 
 export function startSubscriptionStream(
@@ -94,42 +93,58 @@ export function startSubscriptionStream(
     throw new Error("subscription transport subscribe must return an async iterable");
   }
 
-  return subscriptionIterator;
+  return readSubscriptionEvents(subscriptionIterator);
 }
 
-function readFailureDetail(responseText: string): string | undefined {
+async function* readSubscriptionEvents(subscriptionIterator: AsyncIterableIterator<OperationResponse>): AsyncIterableIterator<unknown> {
+  for await (const subscriptionResponse of subscriptionIterator) {
+    yield readOperationData(subscriptionResponse);
+  }
+}
+
+function readOperationData(operationResponse: OperationResponse): unknown {
+  const operationErrors = operationResponse.errors ?? [];
+
+  if (operationErrors.length > 0) {
+    throw createOperationError(operationErrors, operationResponse.data, "the subscription endpoint", 200);
+  }
+
+  if (operationResponse.data === undefined) {
+    throw new Error("the subscription response did not contain data");
+  }
+
+  return operationResponse.data;
+}
+
+function readResponseRecord(responseText: string, statusCode: number, endpoint: string): Record<string, unknown> {
   let responsePayload: unknown;
 
   try {
     responsePayload = JSON.parse(responseText);
-  } catch {
-    return undefined;
+  } catch (parseError) {
+    throw new Error(`GraphQL response is not valid JSON with status ${statusCode} for ${endpoint}`, { cause: parseError });
   }
 
   if (!responsePayload || typeof responsePayload !== "object" || Array.isArray(responsePayload)) {
-    return undefined;
+    throw new Error(`GraphQL response is not an object for ${endpoint}`);
   }
 
-  const responseRecord = responsePayload as Record<string, unknown>;
-  const errorsValue = responseRecord.errors;
+  return responsePayload as Record<string, unknown>;
+}
 
-  if (!Array.isArray(errorsValue) || errorsValue.length === 0) {
-    return undefined;
-  }
+function createOperationError(
+  operationErrors: ReadonlyArray<OperationGraphqlError>,
+  responseData: unknown,
+  endpoint: string,
+  statusCode: number,
+): OperationError {
+  const firstErrorMessage = operationErrors[0]?.message ?? "unknown GraphQL error";
+  const errorMessage =
+    statusCode === 200
+      ? `GraphQL request failed: ${firstErrorMessage}`
+      : `GraphQL request failed with status ${statusCode} for ${endpoint}: ${firstErrorMessage}`;
 
-  const firstErrorValue = errorsValue[0];
-
-  if (!firstErrorValue || typeof firstErrorValue !== "object" || Array.isArray(firstErrorValue)) {
-    return undefined;
-  }
-
-  const firstErrorRecord = firstErrorValue as Record<string, unknown>;
-
-  if (typeof firstErrorRecord.message !== "string") {
-    return undefined;
-  }
-
-  return firstErrorRecord.message;
+  return Object.assign(new Error(errorMessage), { data: responseData, errors: operationErrors });
 }
 
 function readResponseData(responseRecord: Record<string, unknown>): unknown {

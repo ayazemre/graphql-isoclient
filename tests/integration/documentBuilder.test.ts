@@ -26,7 +26,7 @@ describe("Document Builder", () => {
     const builtOperation = buildOperationDocument(
       "query",
       "Query",
-      lowerSelectionMap({ Tweets: { __args: { limit: 2 }, __scalar: true } }),
+      lowerSelectionMap({ Tweets: { __arguments: { limit: 2 }, __scalar: true } }),
       documentFieldMap,
       documentScalarFieldLists,
     );
@@ -44,12 +44,11 @@ describe("Document Builder", () => {
       "query",
       "Query",
       lowerSelectionMap({
-        Tweet: { Author: { __scalar: true }, __args: { id: "tweet-1" }, __scalar: true },
+        Tweet: { Author: { __scalar: true }, __arguments: { id: "tweet-1" }, __scalar: true },
       }),
       documentFieldMap,
       documentScalarFieldLists,
     );
-
     assert.equal(
       builtOperation.document,
       [
@@ -75,8 +74,8 @@ describe("Document Builder", () => {
       "query",
       "Query",
       lowerSelectionMap({
-        Tweet: { __args: { id: "tweet-1" }, __scalar: true },
-        User: { __args: { id: "user-1" }, __scalar: true },
+        Tweet: { __arguments: { id: "tweet-1" }, __scalar: true },
+        User: { __arguments: { id: "user-1" }, __scalar: true },
       }),
       documentFieldMap,
       documentScalarFieldLists,
@@ -106,7 +105,7 @@ describe("Document Builder", () => {
     const builtOperation = buildOperationDocument(
       "query",
       "Query",
-      lowerSelectionMap({ Tweet: { __args: { id: "tweet-1" }, __scalar: true, body: true } }),
+      lowerSelectionMap({ Tweet: { __arguments: { id: "tweet-1" }, __scalar: true, body: true } }),
       documentFieldMap,
       documentScalarFieldLists,
     );
@@ -122,7 +121,7 @@ describe("Document Builder", () => {
     const builtOperation = buildOperationDocument(
       "query",
       "Query",
-      lowerSelectionMap({ Tweets: { __args: { limit: undefined, skip: 2 }, __scalar: true } }),
+      lowerSelectionMap({ Tweets: { __arguments: { limit: undefined, skip: 2 }, __scalar: true } }),
       documentFieldMap,
       documentScalarFieldLists,
     );
@@ -173,7 +172,7 @@ describe("Document Builder", () => {
     const builtOperation = buildOperationDocument(
       "mutation",
       "Mutation",
-      lowerSelectionMap({ createTweet: { __args: { body: "hello" }, __scalar: true } }),
+      lowerSelectionMap({ createTweet: { __arguments: { body: "hello" }, __scalar: true } }),
       documentFieldMap,
       documentScalarFieldLists,
     );
@@ -194,7 +193,13 @@ describe("Document Builder", () => {
   test("Missing Selection", () => {
     assert.throws(
       () =>
-        buildOperationDocument("query", "Query", lowerSelectionMap({ Tweets: { __args: { limit: 1 } } }), documentFieldMap, documentScalarFieldLists),
+        buildOperationDocument(
+          "query",
+          "Query",
+          lowerSelectionMap({ Tweets: { __arguments: { limit: 1 } } }),
+          documentFieldMap,
+          documentScalarFieldLists,
+        ),
       { message: "field Tweets on type Query requires a selection" },
     );
   });
@@ -205,7 +210,7 @@ describe("Document Builder", () => {
         buildOperationDocument(
           "query",
           "Query",
-          lowerSelectionMap({ Tweet: { __args: { id: "tweet-1" }, body: { date: true } } }),
+          lowerSelectionMap({ Tweet: { __arguments: { id: "tweet-1" }, body: { date: true } } }),
           documentFieldMap,
           documentScalarFieldLists,
         ),
@@ -219,7 +224,7 @@ describe("Document Builder", () => {
         buildOperationDocument(
           "query",
           "Query",
-          lowerSelectionMap({ Tweets: { __args: { unknownArgument: 1 }, __scalar: true } }),
+          lowerSelectionMap({ Tweets: { __arguments: { unknownArgument: 1 }, __scalar: true } }),
           documentFieldMap,
           documentScalarFieldLists,
         ),

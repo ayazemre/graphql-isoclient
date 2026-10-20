@@ -22,27 +22,25 @@ const builtInScalarTypeNames: Record<string, string> = {
   String: "string",
 };
 
-const reservedBuilderMethodNames = ["as", "run"];
-
 export function renderTypeSurface(schemaModel: SchemaModel, rootTypeNames: RootTypeNames, includeDeprecatedFields: boolean): string {
   const typeSurfaceParts: GeneratedTypeSurfaceParts = {
     argumentTypes: renderArgumentTypes(schemaModel, includeDeprecatedFields),
     enumTypes: renderEnumTypes(schemaModel),
+    fieldArgumentTypes: renderFieldArgumentTypes(),
     inputObjectTypes: renderInputObjectTypes(schemaModel),
-    operationBuilderTypes: renderOperationBuilderTypes(schemaModel, rootTypeNames, includeDeprecatedFields),
+    requestTypes: renderRequestTypes(schemaModel, includeDeprecatedFields),
     responseTypes: renderResponseTypes(schemaModel, includeDeprecatedFields),
     resultTypes: renderResultTypes(schemaModel, rootTypeNames, includeDeprecatedFields),
-    selectionMapTypes: renderSelectionMapTypes(schemaModel, includeDeprecatedFields),
   };
 
   return [
     typeSurfaceParts.enumTypes,
     typeSurfaceParts.inputObjectTypes,
     typeSurfaceParts.argumentTypes,
-    typeSurfaceParts.selectionMapTypes,
+    typeSurfaceParts.fieldArgumentTypes,
+    typeSurfaceParts.requestTypes,
     typeSurfaceParts.responseTypes,
     typeSurfaceParts.resultTypes,
-    typeSurfaceParts.operationBuilderTypes,
   ]
     .filter((typeSurfacePart) => typeSurfacePart.trim().length > 0)
     .join("\n\n");
@@ -50,9 +48,9 @@ export function renderTypeSurface(schemaModel: SchemaModel, rootTypeNames: RootT
 
 export function renderEnumTypes(schemaModel: SchemaModel): string {
   const enumTypeSources = schemaModel.types.filter(isEnumType).map((enumType) => {
-    const enumValueNames = enumType.enumValues.map((enumValue) => JSON.stringify(enumValue.name));
+    const enumValueSources = enumType.enumValues.map((enumValue) => JSON.stringify(enumValue.name));
 
-    return `export type ${enumType.name} = ${enumValueNames.join(" | ")};`;
+    return `export type ${enumType.name} = ${enumValueSources.join(" | ")};`;
   });
 
   return enumTypeSources.join("\n\n");
@@ -87,24 +85,26 @@ export function renderArgumentTypes(schemaModel: SchemaModel, includeDeprecatedF
   return argumentTypeSources.join("\n\n");
 }
 
-export function renderSelectionMapTypes(schemaModel: SchemaModel, includeDeprecatedFields: boolean): string {
-  const selectionMapTypeSources = listEmittableTypes(schemaModel).map((objectType) => {
-    const propertySources = listTypeSurfaceFields(objectType, schemaModel, includeDeprecatedFields).map((field) => {
-      const fieldSelectionType = renderFieldSelectionType(field, schemaModel);
+export function renderFieldArgumentTypes(): string {
+  return [
+    "export type RequiredFieldArguments<Arguments> = { __arguments: Arguments };",
+    "",
+    "export type OptionalFieldArguments<Arguments> = { __arguments?: Arguments };",
+  ].join("\n");
+}
 
-      return `\t${field.name}?: ${fieldSelectionType};`;
+export function renderRequestTypes(schemaModel: SchemaModel, includeDeprecatedFields: boolean): string {
+  const requestTypeSources = listEmittableTypes(schemaModel).map((objectType) => {
+    const propertySources = listTypeSurfaceFields(objectType, schemaModel, includeDeprecatedFields).map((field) => {
+      const requestType = renderFieldRequestType(objectType.name, field, schemaModel);
+
+      return `\t${field.name}?: ${requestType};`;
     });
 
-    return [
-      `export type ${objectType.name}SelectionMap = {`,
-      "\t__args?: Record<string, unknown>;",
-      "\t__scalar?: boolean;",
-      ...propertySources,
-      "};",
-    ].join("\n");
+    return [`export type ${objectType.name}Request = {`, "\t__scalar?: boolean;", ...propertySources, "};"].join("\n");
   });
 
-  return selectionMapTypeSources.join("\n\n");
+  return requestTypeSources.join("\n\n");
 }
 
 export function renderResponseTypes(schemaModel: SchemaModel, includeDeprecatedFields: boolean): string {
@@ -132,34 +132,7 @@ export function renderResultTypes(schemaModel: SchemaModel, rootTypeNames: RootT
   return resultTypeSources.join("\n\n");
 }
 
-export function renderOperationBuilderTypes(schemaModel: SchemaModel, rootTypeNames: RootTypeNames, includeDeprecatedFields: boolean): string {
-  const builderTypeSources = collectRootTypeNames(rootTypeNames).map((rootTypeName) => {
-    const rootType = findObjectType(rootTypeName, schemaModel);
-    const methodSources = listTypeSurfaceFields(rootType, schemaModel, includeDeprecatedFields).map((field) => {
-      const methodName = resolveBuilderMethodName(field.name);
-      const parameterSources = renderBuilderMethodParameters(rootTypeName, field, schemaModel);
-
-      return `\t${methodName}(${parameterSources.join(", ")}): ${rootTypeName}Builder;`;
-    });
-    const isSubscriptionRoot = rootTypeName === rootTypeNames.subscription;
-    const runReturnType = isSubscriptionRoot
-      ? `AsyncIterableIterator<OperationResult<${rootTypeName}Result>>`
-      : `Promise<OperationResult<${rootTypeName}Result>>`;
-    const runParameter = isSubscriptionRoot ? "options: SubscriptionRequestOptions" : "options?: RequestOptions";
-
-    return [
-      `export type ${rootTypeName}Builder = {`,
-      ...methodSources,
-      `\tas(alias: string): ${rootTypeName}Builder;`,
-      `\trun(${runParameter}): ${runReturnType};`,
-      "};",
-    ].join("\n");
-  });
-
-  return builderTypeSources.join("\n\n");
-}
-
-export function renderOperationExports(schemaModel: SchemaModel, rootTypeNames: RootTypeNames, includeDeprecatedFields: boolean): string {
+export function renderOperationExports(rootTypeNames: RootTypeNames): string {
   const operationExportSources: string[] = [renderOperationEntryPoint("query", rootTypeNames.query)];
 
   if (rootTypeNames.mutation !== undefined) {
@@ -170,119 +143,51 @@ export function renderOperationExports(schemaModel: SchemaModel, rootTypeNames: 
     operationExportSources.push(renderOperationEntryPoint("subscription", rootTypeNames.subscription));
   }
 
-  operationExportSources.push(renderOperationBuilderFactory("query", rootTypeNames.query, schemaModel, includeDeprecatedFields));
-
-  if (rootTypeNames.mutation !== undefined) {
-    operationExportSources.push(renderOperationBuilderFactory("mutation", rootTypeNames.mutation, schemaModel, includeDeprecatedFields));
-  }
-
-  if (rootTypeNames.subscription !== undefined) {
-    operationExportSources.push(renderOperationBuilderFactory("subscription", rootTypeNames.subscription, schemaModel, includeDeprecatedFields));
-  }
-
   return operationExportSources.join("\n\n");
 }
 
-function renderOperationBuilderFactory(
-  operationType: OperationTypeName,
-  rootTypeName: string,
-  schemaModel: SchemaModel,
-  includeDeprecatedFields: boolean,
-): string {
-  const rootType = findObjectType(rootTypeName, schemaModel);
-  const methodSources = listTypeSurfaceFields(rootType, schemaModel, includeDeprecatedFields).map((field) =>
-    renderBuilderMethodSource(rootTypeName, field, schemaModel),
-  );
-  const isSubscriptionRoot = operationType === "subscription";
-  const coreTypeName = isSubscriptionRoot ? "SubscriptionOperationBuilderCore" : "QueryOperationBuilderCore";
-  const runReturnType = isSubscriptionRoot
-    ? `AsyncIterableIterator<OperationResult<${rootTypeName}Result>>`
-    : `Promise<OperationResult<${rootTypeName}Result>>`;
-
-  return [
-    `function create${rootTypeName}Builder(operationBuilderCore: ${coreTypeName}): ${rootTypeName}Builder {`,
-    "\treturn {",
-    ...methodSources,
-    "\t\tas(alias) {",
-    `\t\t\treturn create${rootTypeName}Builder(operationBuilderCore.as(alias));`,
-    "\t\t},",
-    "\t\trun(options) {",
-    `\t\t\treturn operationBuilderCore.run(options) as ${runReturnType};`,
-    "\t\t},",
-    "\t};",
-    "}",
-  ].join("\n");
-}
-
 function renderOperationEntryPoint(operationType: OperationTypeName, rootTypeName: string): string {
+  const isSubscriptionRoot = operationType === "subscription";
+  const requestTypeName = `${rootTypeName}Request`;
+  const resultTypeName = `${rootTypeName}Result`;
+  const optionsTypeName = isSubscriptionRoot ? "SubscriptionRequestOptions" : "RequestOptions";
+  const optionsParameter = isSubscriptionRoot ? `options: ${optionsTypeName}` : `options?: ${optionsTypeName}`;
+  const returnTypeName = isSubscriptionRoot ? `AsyncIterableIterator<${resultTypeName}>` : `Promise<${resultTypeName}>`;
+  const runnerName = isSubscriptionRoot ? "runSubscriptionOperation" : "runOperation";
+  const runnerArguments = isSubscriptionRoot
+    ? `${JSON.stringify(rootTypeName)}, requestMap, runtimeData, options`
+    : `${JSON.stringify(operationType)}, ${JSON.stringify(rootTypeName)}, requestMap, runtimeData, options`;
+
   return [
-    `export function ${operationType}(): ${rootTypeName}Builder {`,
-    `\treturn create${rootTypeName}Builder(createOperationBuilderCore(${JSON.stringify(operationType)}, ${JSON.stringify(rootTypeName)}, runtimeData));`,
+    `export function ${operationType}(requestMap: ${requestTypeName}, ${optionsParameter}): ${returnTypeName} {`,
+    `\treturn ${runnerName}(${runnerArguments}) as ${returnTypeName};`,
     "}",
   ].join("\n");
 }
 
-function renderBuilderMethodSource(rootTypeName: string, field: SchemaFieldModel, schemaModel: SchemaModel): string {
-  const methodName = resolveBuilderMethodName(field.name);
+function renderFieldRequestType(parentTypeName: string, field: SchemaFieldModel, schemaModel: SchemaModel): string {
+  const childType = findSchemaType(namedTypeName(field.typeReference), schemaModel);
   const hasArguments = field.arguments.length > 0;
-  const hasSelectionMap = renderChildSelectionMapTypeName(field, schemaModel) !== undefined;
-  const parameterNames: string[] = [];
-
-  if (hasArguments) {
-    parameterNames.push("fieldArguments");
-  }
-
-  if (hasSelectionMap) {
-    parameterNames.push("selectionMap");
-  }
-
-  const appendArgumentSource = hasArguments ? "fieldArguments" : "undefined";
-  const appendSelectionSource = hasSelectionMap ? "selectionMap" : "undefined";
-
-  return [
-    `\t\t${methodName}(${parameterNames.join(", ")}) {`,
-    `\t\t\treturn create${rootTypeName}Builder(operationBuilderCore.appendField(${JSON.stringify(field.name)}, ${appendArgumentSource}, ${appendSelectionSource}));`,
-    "\t\t},",
-  ].join("\n");
-}
-
-function renderBuilderMethodParameters(rootTypeName: string, field: SchemaFieldModel, schemaModel: SchemaModel): string[] {
-  const parameterSources: string[] = [];
-  const argumentTypeName = renderArgumentTypeName(rootTypeName, field.name);
-
-  if (field.arguments.length > 0) {
-    const hasRequiredArgument = field.arguments.some((argument) => argument.typeReference.kind === "NON_NULL");
-
-    parameterSources.push(hasRequiredArgument ? `fieldArguments: ${argumentTypeName}` : `fieldArguments: ${argumentTypeName} | undefined`);
-  }
-
-  const selectionMapTypeName = renderChildSelectionMapTypeName(field, schemaModel);
-
-  if (selectionMapTypeName !== undefined) {
-    parameterSources.push(`selectionMap: ${selectionMapTypeName}`);
-  }
-
-  return parameterSources;
-}
-
-function renderChildSelectionMapTypeName(field: SchemaFieldModel, schemaModel: SchemaModel): string | undefined {
-  const childType = findSchemaType(namedTypeName(field.typeReference), schemaModel);
+  const hasRequiredArgument = field.arguments.some((argument) => argument.typeReference.kind === "NON_NULL");
+  const argumentTypeName = renderArgumentTypeName(parentTypeName, field.name);
+  const fieldArgumentTypeName = hasRequiredArgument ? "RequiredFieldArguments" : "OptionalFieldArguments";
+  const fieldArgumentType = `${fieldArgumentTypeName}<${argumentTypeName}>`;
 
   if (childType.kind !== "OBJECT") {
-    return undefined;
+    if (hasArguments === false) {
+      return "boolean";
+    }
+
+    return `boolean | ${fieldArgumentType}`;
   }
 
-  return `${childType.name}SelectionMap`;
-}
+  const childRequestTypeName = `${childType.name}Request`;
 
-function renderFieldSelectionType(field: SchemaFieldModel, schemaModel: SchemaModel): string {
-  const childType = findSchemaType(namedTypeName(field.typeReference), schemaModel);
-
-  if (childType.kind !== "OBJECT") {
-    return "boolean";
+  if (hasArguments === false) {
+    return childRequestTypeName;
   }
 
-  return `boolean | ${childType.name}SelectionMap`;
+  return `(${childRequestTypeName} & ${fieldArgumentType})`;
 }
 
 function renderInputPropertySource(inputField: SchemaInputFieldModel, schemaModel: SchemaModel): string {
@@ -361,14 +266,6 @@ function renderArgumentTypeName(parentTypeName: string, fieldName: string): stri
   return `${parentTypeName}${capitalizeFirstLetter(fieldName)}Arguments`;
 }
 
-function resolveBuilderMethodName(fieldName: string): string {
-  if (reservedBuilderMethodNames.includes(fieldName)) {
-    return `${fieldName}Field`;
-  }
-
-  return fieldName;
-}
-
 function listTypeSurfaceFields(objectType: SchemaObjectTypeModel, schemaModel: SchemaModel, includeDeprecatedFields: boolean): SchemaFieldModel[] {
   const typesByName = indexSchemaTypes(schemaModel);
 
@@ -440,9 +337,9 @@ function capitalizeFirstLetter(value: string): string {
 export type GeneratedTypeSurfaceParts = {
   argumentTypes: string;
   enumTypes: string;
+  fieldArgumentTypes: string;
   inputObjectTypes: string;
-  operationBuilderTypes: string;
+  requestTypes: string;
   responseTypes: string;
   resultTypes: string;
-  selectionMapTypes: string;
 };

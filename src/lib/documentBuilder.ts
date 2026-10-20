@@ -1,6 +1,7 @@
 import type { RuntimeFieldEntry, RuntimeFieldMap, RuntimeScalarFieldLists } from "./fieldMap.ts";
 
 const selectAllScalarFieldsMarker = "__scalar";
+const fieldArgumentsMarker = "__arguments";
 
 export function lowerSelectionMap(selectionMap: SelectionMap): OperationSelection {
   if (!selectionMap || typeof selectionMap !== "object" || Array.isArray(selectionMap)) {
@@ -22,7 +23,7 @@ export function lowerSelectionMap(selectionMap: SelectionMap): OperationSelectio
       continue;
     }
 
-    if (fieldName === "__args") {
+    if (fieldName === fieldArgumentsMarker) {
       continue;
     }
 
@@ -40,10 +41,10 @@ export function lowerSelectionMap(selectionMap: SelectionMap): OperationSelectio
     }
 
     const fieldSelectionMap = selectionValue as SelectionMap;
+    const fieldArguments = readFieldArguments(fieldSelectionMap);
 
-    if (fieldSelectionMap.__args !== undefined) {
-      checkArgumentValues(fieldSelectionMap.__args, fieldName);
-      operationSelectionEntry.arguments = fieldSelectionMap.__args;
+    if (fieldArguments !== undefined) {
+      operationSelectionEntry.arguments = fieldArguments;
     }
 
     const fieldSelection = lowerSelectionMap(fieldSelectionMap);
@@ -86,6 +87,20 @@ export function buildOperationDocument(
   return { document, operationName, variables: documentBuildContext.variables };
 }
 
+function readFieldArguments(fieldSelectionMap: SelectionMap): ArgumentValues | undefined {
+  const fieldArguments = fieldSelectionMap[fieldArgumentsMarker];
+
+  if (fieldArguments === undefined) {
+    return undefined;
+  }
+
+  if (!fieldArguments || typeof fieldArguments !== "object" || Array.isArray(fieldArguments)) {
+    throw new Error("field arguments must be an object");
+  }
+
+  return fieldArguments as ArgumentValues;
+}
+
 function expandSelection(
   operationSelection: OperationSelection,
   typeName: string,
@@ -104,10 +119,6 @@ function expandSelection(
 
     if (selectedFieldNames.has(operationSelectionEntry.field)) {
       throw new Error(`field ${operationSelectionEntry.field} is selected more than once on type ${typeName}`);
-    }
-
-    if (operationSelectionEntry.alias !== undefined) {
-      checkGraphqlName(operationSelectionEntry.alias, "alias");
     }
 
     selectedFieldNames.add(operationSelectionEntry.field);
@@ -303,20 +314,14 @@ function checkGraphqlName(value: string, valueDescription: string): void {
   }
 }
 
-function checkArgumentValues(argumentValues: ArgumentValues, fieldName: string): void {
-  if (!argumentValues || typeof argumentValues !== "object" || Array.isArray(argumentValues)) {
-    throw new Error(`arguments for field ${fieldName} must be an object`);
-  }
-}
-
 export type ArgumentValues = Record<string, unknown>;
 
-export type SelectionValue = boolean | SelectionMap | ArgumentValues | undefined;
+export type SelectionValue = boolean | SelectionMap | undefined;
 
 export type SelectionMap = {
   readonly __scalar?: boolean;
-  readonly __args?: ArgumentValues;
-  readonly [fieldName: string]: SelectionValue;
+  readonly __arguments?: ArgumentValues;
+  readonly [fieldName: string]: SelectionValue | ArgumentValues;
 };
 
 export type OperationSelectionEntry = {
@@ -332,12 +337,12 @@ export type OperationTypeName = "query" | "mutation" | "subscription";
 
 export type BuiltOperation = {
   document: string;
-  variables: Record<string, unknown>;
   operationName: string;
+  variables: Record<string, unknown>;
 };
 
 type DocumentBuildContext = {
+  usedVariableNames: Set<string>;
   variableDefinitions: string[];
   variables: Record<string, unknown>;
-  usedVariableNames: Set<string>;
 };
