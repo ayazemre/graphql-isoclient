@@ -1,0 +1,21 @@
+type Notification {
+  id: ID
+  type: String
+}
+
+type Tweet {
+  id: ID!
+  body: String
+}
+
+type Query {
+  Tweet(id: ID!): Tweet
+}
+
+type Mutation {
+  createTweet(body: String): Tweet
+}
+
+type Subscription {
+  notificationAdded: Notification
+}

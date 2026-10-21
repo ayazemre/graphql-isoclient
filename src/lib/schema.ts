@@ -48,9 +48,13 @@ export function resolveRootTypeNames(schemaModel: SchemaModel): RootTypeNames {
 
 export function listEmittableTypes(schemaModel: SchemaModel): SchemaObjectTypeModel[] {
   return schemaModel.types
-    .filter((schemaType) => schemaType.name.startsWith("__") === false)
+    .filter((schemaType) => isEmittableTypeName(schemaType.name))
     .filter(isObjectTypeModel)
     .sort(compareByName);
+}
+
+export function isEmittableTypeName(typeName: string): boolean {
+  return typeName.startsWith("__") === false;
 }
 
 export function listScalarFieldNames(

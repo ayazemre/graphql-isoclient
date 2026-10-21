@@ -1,13 +1,12 @@
 import { strict as assert } from "node:assert";
 import { after, before, beforeEach, describe, test } from "node:test";
 
-import { runOperation, runSubscriptionOperation } from "#src/lib/queryBuilder.ts";
+import { runOperation } from "#src/lib/queryBuilder.ts";
 
 import type { OperationRuntimeData } from "#src/lib/queryBuilder.ts";
-import type { OperationRequest, OperationResponse, SubscriptionTransport } from "#src/lib/transport.ts";
 import type { RunningCaptureHttpServer } from "../helpers.ts";
 
-import { createEventIterator, startCaptureHttpServer } from "../helpers.ts";
+import { startCaptureHttpServer } from "../helpers.ts";
 
 let runningCaptureServer: RunningCaptureHttpServer;
 
@@ -137,42 +136,6 @@ describe("Operation Runner", () => {
 
     assert.throws(() => runOperation("query", "Query", {}, runtimeData, undefined), { message: "selection for Query is empty" });
   });
-
-  test("Subscription Operation Streams Through Transport", async () => {
-    const receivedOperationRequests: OperationRequest[] = [];
-    const testTransport: SubscriptionTransport = {
-      subscribe: (operationRequest) => {
-        receivedOperationRequests.push(operationRequest);
-        return createEventIterator([{ data: { notificationAdded: { id: "n-1" } } }]);
-      },
-    };
-    const runtimeData = buildTestRuntimeData("http://subscription.invalid/graphql");
-
-    const subscriptionIterator = runSubscriptionOperation("Subscription", { notificationAdded: { __scalar: true } }, runtimeData, {
-      transport: testTransport,
-    });
-    const firstEvent = await subscriptionIterator.next();
-
-    assert.deepEqual(firstEvent, { done: false, value: { notificationAdded: { id: "n-1" } } });
-
-    const receivedRequest = receivedOperationRequests[0];
-    assert.ok(receivedRequest !== undefined);
-    assert.equal(receivedRequest.endpoint, "http://subscription.invalid/graphql");
-    assert.equal(receivedRequest.operationName, "SubscriptionNotificationAdded");
-    assert.equal(
-      receivedRequest.document,
-      ["subscription SubscriptionNotificationAdded {", "  notificationAdded {", "    id", "    type", "  }", "}"].join("\n"),
-    );
-  });
-
-  test("Subscription Run Requires Endpoint", () => {
-    const runtimeData = buildTestRuntimeData(undefined);
-
-    assert.throws(
-      () => runSubscriptionOperation("Subscription", { notificationAdded: { __scalar: true } }, runtimeData, { transport: createTestTransport() }),
-      { message: /no endpoint is configured/ },
-    );
-  });
 });
 
 function buildTestRuntimeData(defaultEndpoint: string | undefined): OperationRuntimeData {
@@ -183,21 +146,11 @@ function buildTestRuntimeData(defaultEndpoint: string | undefined): OperationRun
       "Query.Tweet": { arguments: { id: "ID!" }, select: "Tweet" },
       "Query.Tweets": { arguments: { limit: "Int" }, select: "Tweet" },
       "Query.User": { arguments: { id: "ID!" }, select: "User" },
-      "Subscription.notificationAdded": { select: "Notification" },
       "Tweet.Author": { arguments: { id: "ID!" }, select: "User" },
     },
     scalarFieldLists: {
-      Notification: ["id", "type"],
       Tweet: ["body"],
       User: ["username"],
     },
   };
 }
-
-function createTestTransport(): SubscriptionTransport {
-  return {
-    subscribe: () => createEventIterator([]),
-  };
-}
-
-export type { OperationResponse };

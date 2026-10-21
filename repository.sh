@@ -21,6 +21,7 @@ run_integrity_checks() {
 
   check_project_structure --target_directory="$target_directory_path" --items="$project_item_list"
   check_changelog_version --target_directory="$target_directory_path"
+  check_dependency_boundary --target_directory="$target_directory_path"
   run_scripts --target_directory="$target_directory_path" --scripts="lint"
   run_scripts --target_directory="$target_directory_path" --scripts="format -- --check"
 
@@ -55,6 +56,44 @@ check_project_structure() {
   done
 
   common_print_message --message="Project structure is complete in $target_directory_path" --color=green
+}
+
+check_dependency_boundary() {
+  local target_directory_path=""
+  local package_json_path=""
+  local source_file_path=""
+  local graphql_importing_file_path=""
+
+  target_directory_path=$(common_extract_flag_value target_directory --default="." "$@")
+
+  common_check_variables target_directory_path
+  common_check_directory_exists --directory_path="$target_directory_path"
+  common_check_directory_exists --directory_path="$target_directory_path/src"
+  common_check_file_exists --file_path="$target_directory_path/package.json"
+
+  package_json_path="$target_directory_path/package.json"
+
+  if grep -qE '"dependencies"[[:space:]]*:[[:space:]]*\{' "$package_json_path"; then
+    common_print_message --message="Error: $package_json_path declares runtime dependencies" --color=red
+
+    exit 1
+  fi
+
+  while IFS= read -r source_file_path; do
+    if grep -qF 'from "graphql"' "$source_file_path"; then
+      graphql_importing_file_path="$source_file_path"
+
+      break
+    fi
+  done < <(find "$target_directory_path/src" -type f -name "*.ts")
+
+  if [ -n "$graphql_importing_file_path" ]; then
+    common_print_message --message="Error: $graphql_importing_file_path imports the graphql library" --color=red
+
+    exit 1
+  fi
+
+  common_print_message --message="The dependency boundary is intact in $target_directory_path" --color=green
 }
 
 check_changelog_version() {

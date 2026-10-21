@@ -1,9 +1,10 @@
-import type { OperationSelection, OperationTypeName, SelectionMap } from "./documentBuilder.ts";
+import type { OperationSelection, SelectionMap } from "./documentBuilder.ts";
 import type { RuntimeFieldMap, RuntimeScalarFieldLists } from "./fieldMap.ts";
-import type { OperationRequest, RequestOptions, SubscriptionTransport } from "./transport.ts";
+import type { OperationTypeName } from "./operationType.ts";
+import type { OperationRequest, RequestOptions } from "./transport.ts";
 
 import { buildOperationDocument, lowerSelectionMap } from "./documentBuilder.ts";
-import { sendOperationRequest, startSubscriptionStream } from "./transport.ts";
+import { sendOperationRequest } from "./transport.ts";
 
 export function runOperation(
   operationType: OperationTypeName,
@@ -17,18 +18,7 @@ export function runOperation(
   return sendOperationRequest(operationRequest);
 }
 
-export function runSubscriptionOperation(
-  rootTypeName: string,
-  requestMap: SelectionMap,
-  runtimeData: OperationRuntimeData,
-  options: SubscriptionRequestOptions,
-): AsyncIterableIterator<unknown> {
-  const operationRequest = buildOperationRequest("subscription", rootTypeName, requestMap, runtimeData, options);
-
-  return startSubscriptionStream(operationRequest, options.transport);
-}
-
-function buildOperationRequest(
+export function buildOperationRequest(
   operationType: OperationTypeName,
   rootTypeName: string,
   requestMap: SelectionMap,
@@ -59,8 +49,4 @@ export type OperationRuntimeData = {
   scalarFieldLists: RuntimeScalarFieldLists;
   defaultEndpoint: string | undefined;
   defaultHeaders: Record<string, string>;
-};
-
-export type SubscriptionRequestOptions = RequestOptions & {
-  transport: SubscriptionTransport;
 };

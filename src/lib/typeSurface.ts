@@ -1,4 +1,4 @@
-import type { OperationTypeName } from "./documentBuilder.ts";
+import type { OperationTypeName } from "./operationType.ts";
 import type { RootTypeNames } from "./schema.ts";
 import type {
   SchemaEnumTypeModel,
@@ -11,7 +11,7 @@ import type {
   SchemaTypeReference,
 } from "./schemaModel.ts";
 
-import { listEmittableTypes } from "./schema.ts";
+import { listEmittableTypes, isEmittableTypeName } from "./schema.ts";
 import { indexSchemaTypes, isLeafTypeReference, namedTypeName } from "./schemaModel.ts";
 
 const builtInScalarTypeNames: Record<string, string> = {
@@ -28,6 +28,7 @@ export function renderTypeSurface(schemaModel: SchemaModel, rootTypeNames: RootT
     enumTypes: renderEnumTypes(schemaModel),
     fieldArgumentTypes: renderFieldArgumentTypes(),
     inputObjectTypes: renderInputObjectTypes(schemaModel),
+    operationTypes: renderOperationTypes(rootTypeNames),
     requestTypes: renderRequestTypes(schemaModel, includeDeprecatedFields),
     responseTypes: renderResponseTypes(schemaModel, includeDeprecatedFields),
     resultTypes: renderResultTypes(schemaModel, rootTypeNames, includeDeprecatedFields),
@@ -38,6 +39,7 @@ export function renderTypeSurface(schemaModel: SchemaModel, rootTypeNames: RootT
     typeSurfaceParts.inputObjectTypes,
     typeSurfaceParts.argumentTypes,
     typeSurfaceParts.fieldArgumentTypes,
+    typeSurfaceParts.operationTypes,
     typeSurfaceParts.requestTypes,
     typeSurfaceParts.responseTypes,
     typeSurfaceParts.resultTypes,
@@ -46,16 +48,24 @@ export function renderTypeSurface(schemaModel: SchemaModel, rootTypeNames: RootT
     .join("\n\n");
 }
 
-export function renderEnumTypes(schemaModel: SchemaModel): string {
-  const enumTypeSources = schemaModel.types.filter(isEnumType).map((enumType) => {
-    const enumValueSources = enumType.enumValues.map((enumValue) => JSON.stringify(enumValue.name));
+export function renderOperationTypes(rootTypeNames: RootTypeNames): string {
+  const operationTypeSources = collectOperationTypeNames(rootTypeNames).map((operationTypeName) => JSON.stringify(operationTypeName));
 
-    return `export type ${enumType.name} = ${enumValueSources.join(" | ")};`;
-  });
+  return `export type OperationTypeName = ${operationTypeSources.join(" | ")};`;
+}
+
+export function renderEnumTypes(schemaModel: SchemaModel): string {
+  const enumTypeSources = schemaModel.types
+    .filter((schemaType) => isEmittableTypeName(schemaType.name))
+    .filter(isEnumType)
+    .map((enumType) => {
+      const enumValueSources = enumType.enumValues.map((enumValue) => JSON.stringify(enumValue.name));
+
+      return `export type ${enumType.name} = ${enumValueSources.join(" | ")};`;
+    });
 
   return enumTypeSources.join("\n\n");
 }
-
 export function renderInputObjectTypes(schemaModel: SchemaModel): string {
   const inputObjectTypeSources = schemaModel.types.filter(isInputObjectType).map((inputObjectType) => {
     const propertySources = inputObjectType.inputFields.map((inputField) => renderInputPropertySource(inputField, schemaModel));
@@ -207,6 +217,10 @@ function renderResponsePropertySource(field: SchemaFieldModel, schemaModel: Sche
     return `\t${field.name}?: ${propertyType};`;
   }
 
+  if (propertyType === "unknown") {
+    return `\t${field.name}?: ${propertyType};`;
+  }
+
   return `\t${field.name}?: ${propertyType} | null;`;
 }
 
@@ -301,6 +315,20 @@ function collectRootTypeNames(rootTypeNames: RootTypeNames): string[] {
   return rootTypeNameList;
 }
 
+function collectOperationTypeNames(rootTypeNames: RootTypeNames): OperationTypeName[] {
+  const operationTypeNameList: OperationTypeName[] = ["query"];
+
+  if (rootTypeNames.mutation !== undefined) {
+    operationTypeNameList.push("mutation");
+  }
+
+  if (rootTypeNames.subscription !== undefined) {
+    operationTypeNameList.push("subscription");
+  }
+
+  return operationTypeNameList;
+}
+
 function findSchemaType(typeName: string, schemaModel: SchemaModel): SchemaTypeModel {
   const typesByName = indexSchemaTypes(schemaModel);
   const foundType = typesByName[typeName];
@@ -339,6 +367,7 @@ export type GeneratedTypeSurfaceParts = {
   enumTypes: string;
   fieldArgumentTypes: string;
   inputObjectTypes: string;
+  operationTypes: string;
   requestTypes: string;
   responseTypes: string;
   resultTypes: string;

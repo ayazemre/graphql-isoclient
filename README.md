@@ -64,6 +64,18 @@ const tweetBody = tweetResult.createTweet?.body;
 
 `query` and `mutation` take the request map as the first argument and the request options as the second. The request map describes the fields to read and the arguments to send. `subscription` has the same shape and returns an async iterable.
 
+### What the generated file contains
+
+The generated file holds only what the schema needs. A schema with a query root type and no mutation root type gets a `query` function and no `mutation` function. A schema with no subscription root type gets no subscription function, no subscription transport, and no subscription types.
+
+| Schema root types   | Generated operations    |
+| ------------------- | ----------------------- |
+| Query               | `query`                 |
+| Query, Mutation     | `query`, `mutation`     |
+| Query, Subscription | `query`, `subscription` |
+
+Query and mutation share one runtime, because both send the same request and differ only in the operation keyword. Subscriptions have their own runtime, because they stream through an injected transport instead of sending a request.
+
 ### Client configuration
 
 The generated file opens with an editable configuration block. Change the URL and the headers there, no regeneration needed.
@@ -124,7 +136,7 @@ const result = await query({ User: { __arguments: { id: "user-1" }, username: tr
 
 ### Subscriptions
 
-A subscription returns an async iterable. The transport is injected, so the client stays free of a websocket dependency.
+A subscription returns an async iterable. The transport is injected, so the client stays free of a websocket dependency. The subscription function and its types exist only when the schema has a subscription root type.
 
 ```ts
 import { subscription } from "./graphql/client.ts";

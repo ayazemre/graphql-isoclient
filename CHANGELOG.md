@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-10-21
+
+### Changed
+
+- The generated file holds only the operations the schema has. A schema with no subscription root type gets no subscription function, no subscription transport, and no subscription types. A schema with no mutation root type gets no mutation function and no mutation types.
+- The `OperationTypeName` type lists only the operation types the schema has.
+
+### Fixed
+
+- The generated file no longer trips the `no-unused-vars` lint rule when the schema has no subscription root type.
+- The generated runtime data lists its keys in sorted order, so the generated file passes the `sort-keys` lint rule.
+- The unused GraphQL introspection types `__TypeKind` and `__DirectiveLocation` are no longer emitted.
+- A nullable custom scalar is typed as `unknown` instead of `unknown | null`, which is the same type.
+
 ## [0.3.0] - 2026-10-20
 
 ### Changed

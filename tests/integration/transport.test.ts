@@ -1,12 +1,12 @@
 import { strict as assert } from "node:assert";
 import { after, before, beforeEach, describe, test } from "node:test";
 
-import { sendOperationRequest, startSubscriptionStream } from "#src/lib/transport.ts";
+import { sendOperationRequest } from "#src/lib/transport.ts";
 
-import type { OperationRequest, OperationResponse, SubscriptionTransport } from "#src/lib/transport.ts";
+import type { OperationRequest } from "#src/lib/transport.ts";
 import type { RunningCaptureHttpServer } from "../helpers.ts";
 
-import { createEventIterator, startCaptureHttpServer } from "../helpers.ts";
+import { startCaptureHttpServer } from "../helpers.ts";
 
 let runningCaptureServer: RunningCaptureHttpServer;
 
@@ -132,44 +132,6 @@ describe("Transport", () => {
 
     await assert.rejects(sendOperationRequest(operationRequest), { name: "AbortError" });
   });
-
-  test("Subscription Stream", async () => {
-    const receivedOperationRequests: OperationRequest[] = [];
-    const testTransport: SubscriptionTransport = {
-      subscribe: (operationRequest) => {
-        receivedOperationRequests.push(operationRequest);
-        return createEventIterator([{ data: { notificationAdded: { id: "n-1" } } }]);
-      },
-    };
-    const operationRequest = buildTestOperationRequest();
-
-    const subscriptionIterator = startSubscriptionStream(operationRequest, testTransport);
-    const firstEvent = await subscriptionIterator.next();
-
-    assert.deepEqual(firstEvent, { done: false, value: { notificationAdded: { id: "n-1" } } });
-  });
-
-  test("Subscription Errors Are Thrown", async () => {
-    const testTransport: SubscriptionTransport = {
-      subscribe: () => createEventIterator([{ data: null, errors: [{ message: "subscription failed" }] }]),
-    };
-
-    const subscriptionIterator = startSubscriptionStream(buildTestOperationRequest(), testTransport);
-
-    await assert.rejects(subscriptionIterator.next(), { message: "GraphQL request failed: subscription failed" });
-  });
-
-  test("Missing Subscription Transport", () => {
-    assert.throws(() => startSubscriptionStream(buildTestOperationRequest(), undefined), {
-      message: "subscription requires a transport with a subscribe function",
-    });
-  });
-
-  test("Invalid Subscription Transport", () => {
-    assert.throws(() => startSubscriptionStream(buildTestOperationRequest(), { subscribe: () => ({}) as never }), {
-      message: "subscription transport subscribe must return an async iterable",
-    });
-  });
 });
 
 async function captureOperationError(operation: Promise<unknown>): Promise<Error & { errors: unknown; data: unknown }> {
@@ -192,5 +154,3 @@ function buildTestOperationRequest(overrides: Partial<OperationRequest> = {}): O
     ...overrides,
   };
 }
-
-export type { OperationResponse };

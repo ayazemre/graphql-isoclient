@@ -1,11 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import type { RuntimeSectionFileName } from "./runtimeSections.ts";
+import type { RuntimeSectionDefinition, RuntimeSectionFileName } from "./runtimeSections.ts";
+import type { RootTypeNames } from "./schema.ts";
 import type { SchemaModel } from "./schemaModel.ts";
 
 import { buildSchemaRuntimeData } from "./fieldMap.ts";
-import { runtimeSectionFileNames } from "./runtimeSections.ts";
+import { runtimeSectionDefinitions } from "./runtimeSections.ts";
 import { loadSchemaFromEndpoint, loadSchemaFromIntrospectionJson, resolveRootTypeNames } from "./schema.ts";
 import { assembleGeneratedFile, renderClientConfig, renderRuntimeDataLiterals } from "./typescriptMap.ts";
 import { renderOperationExports, renderTypeSurface } from "./typeSurface.ts";
@@ -95,7 +96,7 @@ export async function renderGeneratedFile(schemaModel: SchemaModel, options: Gen
   const rootTypeNames = resolveRootTypeNames(schemaModel);
   const includeDeprecatedFields = options.includeDeprecatedFields ?? false;
   const schemaRuntimeData = buildSchemaRuntimeData(schemaModel, includeDeprecatedFields);
-  const runtimeSections = await renderRuntimeSectionsSource();
+  const runtimeSections = await renderRuntimeSectionsSource(rootTypeNames);
 
   return assembleGeneratedFile({
     clientConfig: renderClientConfig(options.introspectionJsonFile ?? options.schemaEndpoint ?? "unknown schema source", options.endpoint),
@@ -131,10 +132,22 @@ async function loadSchemaForGenerateOptions(options: GenerateOptions): Promise<S
   throw new Error("Generate options must define introspectionJsonFile or schemaEndpoint");
 }
 
-async function renderRuntimeSectionsSource(): Promise<string> {
-  const sectionSources = await Promise.all(runtimeSectionFileNames.map((sectionFileName) => readRuntimeSectionSource(sectionFileName)));
+async function renderRuntimeSectionsSource(rootTypeNames: RootTypeNames): Promise<string> {
+  const includedSectionFileNames = runtimeSectionDefinitions
+    .filter((sectionDefinition) => isRuntimeSectionIncluded(sectionDefinition, rootTypeNames))
+    .map((sectionDefinition) => sectionDefinition.fileName);
+
+  const sectionSources = await Promise.all(includedSectionFileNames.map((sectionFileName) => readRuntimeSectionSource(sectionFileName)));
 
   return sectionSources.map((sectionSource) => stripRuntimeSectionModuleSyntax(sectionSource).trimEnd()).join("\n\n");
+}
+
+function isRuntimeSectionIncluded(sectionDefinition: RuntimeSectionDefinition, rootTypeNames: RootTypeNames): boolean {
+  if (sectionDefinition.requiredRootType === undefined) {
+    return true;
+  }
+
+  return rootTypeNames[sectionDefinition.requiredRootType] !== undefined;
 }
 
 export type GenerateOptions = {

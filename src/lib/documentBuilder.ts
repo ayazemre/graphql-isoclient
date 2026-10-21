@@ -1,4 +1,5 @@
 import type { RuntimeFieldEntry, RuntimeFieldMap, RuntimeScalarFieldLists } from "./fieldMap.ts";
+import type { OperationTypeName } from "./operationType.ts";
 
 const selectAllScalarFieldsMarker = "__scalar";
 const fieldArgumentsMarker = "__arguments";
@@ -332,8 +333,6 @@ export type OperationSelectionEntry = {
 };
 
 export type OperationSelection = OperationSelectionEntry[];
-
-export type OperationTypeName = "query" | "mutation" | "subscription";
 
 export type BuiltOperation = {
   document: string;

@@ -11,14 +11,14 @@ export function buildRuntimeFieldMap(schemaModel: SchemaModel): RuntimeFieldMap 
     for (const field of [...objectType.fields].sort(compareByName)) {
       const runtimeFieldEntry: RuntimeFieldEntry = {};
 
-      if (isLeafTypeReference(field.typeReference, typesByName) === false) {
-        runtimeFieldEntry.select = namedTypeName(field.typeReference);
-      }
-
       const argumentTypes = listFieldArgumentTypes(field);
 
       if (Object.keys(argumentTypes).length > 0) {
         runtimeFieldEntry.arguments = argumentTypes;
+      }
+
+      if (isLeafTypeReference(field.typeReference, typesByName) === false) {
+        runtimeFieldEntry.select = namedTypeName(field.typeReference);
       }
 
       if (runtimeFieldEntry.select === undefined && runtimeFieldEntry.arguments === undefined) {
@@ -57,8 +57,8 @@ export function buildSchemaRuntimeData(schemaModel: SchemaModel, includeDeprecat
 }
 
 export type RuntimeFieldEntry = {
-  select?: string;
   arguments?: Record<string, string>;
+  select?: string;
 };
 
 export type RuntimeFieldMap = Record<string, RuntimeFieldEntry>;

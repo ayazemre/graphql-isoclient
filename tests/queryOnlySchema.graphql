@@ -1,0 +1,9 @@
+type Tweet {
+  id: ID!
+  body: String
+}
+
+type Query {
+  Tweet(id: ID!): Tweet
+  Tweets(limit: Int): [Tweet]
+}

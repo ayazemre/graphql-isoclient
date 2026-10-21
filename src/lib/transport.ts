@@ -25,18 +25,9 @@ export type OperationRequest = {
   signal?: AbortSignal;
 };
 
-export type OperationResponse = {
-  data?: unknown;
-  errors?: ReadonlyArray<OperationGraphqlError>;
-};
-
 export type OperationError = Error & {
   errors: ReadonlyArray<OperationGraphqlError>;
   data: unknown;
-};
-
-export type SubscriptionTransport = {
-  subscribe(operationRequest: OperationRequest): AsyncIterableIterator<OperationResponse>;
 };
 
 export async function sendOperationRequest(operationRequest: OperationRequest): Promise<unknown> {
@@ -79,43 +70,6 @@ export async function sendOperationRequest(operationRequest: OperationRequest): 
   return responseData;
 }
 
-export function startSubscriptionStream(
-  operationRequest: OperationRequest,
-  subscriptionTransport: SubscriptionTransport | undefined,
-): AsyncIterableIterator<unknown> {
-  if (!subscriptionTransport || typeof subscriptionTransport.subscribe !== "function") {
-    throw new Error("subscription requires a transport with a subscribe function");
-  }
-
-  const subscriptionIterator = subscriptionTransport.subscribe(operationRequest);
-
-  if (!subscriptionIterator || typeof subscriptionIterator.next !== "function") {
-    throw new Error("subscription transport subscribe must return an async iterable");
-  }
-
-  return readSubscriptionEvents(subscriptionIterator);
-}
-
-async function* readSubscriptionEvents(subscriptionIterator: AsyncIterableIterator<OperationResponse>): AsyncIterableIterator<unknown> {
-  for await (const subscriptionResponse of subscriptionIterator) {
-    yield readOperationData(subscriptionResponse);
-  }
-}
-
-function readOperationData(operationResponse: OperationResponse): unknown {
-  const operationErrors = operationResponse.errors ?? [];
-
-  if (operationErrors.length > 0) {
-    throw createOperationError(operationErrors, operationResponse.data, "the subscription endpoint", 200);
-  }
-
-  if (operationResponse.data === undefined) {
-    throw new Error("the subscription response did not contain data");
-  }
-
-  return operationResponse.data;
-}
-
 function readResponseRecord(responseText: string, statusCode: number, endpoint: string): Record<string, unknown> {
   let responsePayload: unknown;
 
@@ -132,7 +86,7 @@ function readResponseRecord(responseText: string, statusCode: number, endpoint: 
   return responsePayload as Record<string, unknown>;
 }
 
-function createOperationError(
+export function createOperationError(
   operationErrors: ReadonlyArray<OperationGraphqlError>,
   responseData: unknown,
   endpoint: string,
