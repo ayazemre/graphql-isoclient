@@ -2,13 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2026-10-22
+
+### Added
+
+- Regenerating into an existing file keeps the configuration block above the boundary comment and replaces everything below it, so a hand-edited endpoint or header survives regeneration.
+
 ## [0.3.1] - 2026-10-21
 
 ### Changed
 
 - The generated file holds only the operations the schema has. A schema with no subscription root type gets no subscription function, no subscription transport, and no subscription types. A schema with no mutation root type gets no mutation function and no mutation types.
 - The `OperationTypeName` type lists only the operation types the schema has.
-- Regenerating into an existing file keeps the configuration block above the boundary comment and replaces everything below it, so a hand-edited endpoint or header survives regeneration.
 
 ### Fixed
 
