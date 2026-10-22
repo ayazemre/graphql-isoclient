@@ -48,6 +48,10 @@ export async function runCli(commandLineArguments: ReadonlyArray<string>): Promi
     const generateOptions = parseCliOptions(commandFlagArguments);
     const generationResult = await generateClient(generateOptions);
 
+    if (generationResult.configurationPreserved) {
+      printMessage("kept the existing configuration block");
+    }
+
     printMessage(`generated ${generationResult.byteLength} bytes`);
 
     process.stdout.write(`${generationResult.outputFile}\n`);

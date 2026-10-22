@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
@@ -117,6 +117,53 @@ describe("Client Generation", () => {
       assert.ok(generatedFileText.includes("export type SubscriptionRequest = {"));
       assert.ok(generatedFileText.includes("export type SubscriptionResult = {"));
       assert.ok(generatedFileText.includes('export type OperationTypeName = "query" | "mutation" | "subscription";'));
+    } finally {
+      await runningGraphqlServer.stop();
+    }
+  });
+
+  test("Existing Configuration Is Preserved", async () => {
+    const schemaFile = new URL("../sampeSchema.graphql", import.meta.url);
+    const runningGraphqlServer = await startGraphqlYogaServer(schemaFile);
+
+    try {
+      const outputDirectory = await mkdtemp(join(tmpdir(), "graphql-isoclient-"));
+      const outputFile = join(outputDirectory, "isoclient.ts");
+
+      await generateClient({ output: outputFile, schemaEndpoint: runningGraphqlServer.endpoint });
+
+      const editedFileText = (await readFile(outputFile, "utf8")).replace("endpoint: undefined,", 'endpoint: "https://edited.example.com/graphql",');
+
+      await writeFile(outputFile, editedFileText, "utf8");
+
+      const generationResult = await generateClient({ output: outputFile, schemaEndpoint: runningGraphqlServer.endpoint });
+      const regeneratedFileText = await readFile(outputFile, "utf8");
+
+      assert.equal(generationResult.configurationPreserved, true);
+      assert.ok(regeneratedFileText.includes('endpoint: "https://edited.example.com/graphql",'));
+      assert.ok(regeneratedFileText.includes("export function query(requestMap: QueryRequest"));
+      assert.ok(regeneratedFileText.includes("// Do not edit below this line."));
+    } finally {
+      await runningGraphqlServer.stop();
+    }
+  });
+
+  test("File Without A Generated Boundary Is Replaced", async () => {
+    const schemaFile = new URL("../sampeSchema.graphql", import.meta.url);
+    const runningGraphqlServer = await startGraphqlYogaServer(schemaFile);
+
+    try {
+      const outputDirectory = await mkdtemp(join(tmpdir(), "graphql-isoclient-"));
+      const outputFile = join(outputDirectory, "isoclient.ts");
+
+      await writeFile(outputFile, "const handWritten = true;\n", "utf8");
+
+      const generationResult = await generateClient({ output: outputFile, schemaEndpoint: runningGraphqlServer.endpoint });
+      const regeneratedFileText = await readFile(outputFile, "utf8");
+
+      assert.equal(generationResult.configurationPreserved, false);
+      assert.ok(regeneratedFileText.includes("const clientConfig: ClientConfig = {"));
+      assert.ok(regeneratedFileText.includes("const handWritten = true;") === false);
     } finally {
       await runningGraphqlServer.stop();
     }

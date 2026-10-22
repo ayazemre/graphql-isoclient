@@ -8,6 +8,7 @@
 - The generated file is the editing surface for the endpoint and the headers, so the generator exposes no option or command line flag for values that the user edits there.
 - The generated client exposes one plain function per operation type, `query`, `mutation`, and `subscription`. The first parameter is the request map and the second is the request options.
 - The generated file holds only what the schema needs. A root type that the schema does not have produces no function, no types, and no runtime code for it. The runtime is split into sections, and a section that needs a root type is emitted only when the schema has that root type.
+- Regenerating into an existing file keeps the configuration block above the boundary comment and replaces everything below it, so a hand-edited endpoint or header survives regeneration.
 - A request map is plain data. The reserved keys are `__arguments` for the arguments of the field that holds the map, and `__scalar` for every scalar field of the type. There is one spelling of each key, spelled out in full.
 - An operation resolves with the data of the operation, and a GraphQL error is thrown as an `OperationError` that carries the reported errors and the partial data.
 - Lint is run with `oxlint --fix`, so the fixer applies the rules and the author does not correct them by hand. Run `npm run lint` before committing.

@@ -1,6 +1,7 @@
 import type { SchemaRuntimeData } from "./fieldMap.ts";
 
 const editBoundaryLine = "-".repeat(100);
+const editBoundaryPattern = new RegExp(`^// ${editBoundaryLine}$`, "m");
 
 export function renderClientConfig(schemaSourceDescription: string, endpoint: string | undefined): string {
   const endpointSource = endpoint === undefined ? "undefined" : JSON.stringify(endpoint);
@@ -48,6 +49,30 @@ export function assembleGeneratedFile(parts: GeneratedFileParts): string {
   );
 }
 
+export function preserveExistingConfiguration(existingFileText: string | undefined, generatedFileText: string): PreservedFileResult {
+  if (existingFileText === undefined) {
+    return { configurationPreserved: false, fileText: generatedFileText };
+  }
+
+  const existingBoundaryIndex = findEditBoundaryIndex(existingFileText);
+  const generatedBoundaryIndex = findEditBoundaryIndex(generatedFileText);
+
+  if (existingBoundaryIndex === -1 || generatedBoundaryIndex === -1) {
+    return { configurationPreserved: false, fileText: generatedFileText };
+  }
+
+  return {
+    configurationPreserved: true,
+    fileText: existingFileText.slice(0, existingBoundaryIndex) + generatedFileText.slice(generatedBoundaryIndex),
+  };
+}
+
+function findEditBoundaryIndex(fileText: string): number {
+  const boundaryMatch = editBoundaryPattern.exec(fileText);
+
+  return boundaryMatch?.index ?? -1;
+}
+
 function indentSourceLiteral(sourceLiteral: string): string {
   return sourceLiteral
     .split("\n")
@@ -65,7 +90,16 @@ export type GeneratedFileParts = {
 
 export type GeneratedTypeSurfaceParts = {
   argumentTypes: string;
+  enumTypes: string;
+  fieldArgumentTypes: string;
+  inputObjectTypes: string;
+  operationTypes: string;
   requestTypes: string;
   responseTypes: string;
   resultTypes: string;
+};
+
+export type PreservedFileResult = {
+  configurationPreserved: boolean;
+  fileText: string;
 };

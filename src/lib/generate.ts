@@ -8,7 +8,7 @@ import type { SchemaModel } from "./schemaModel.ts";
 import { buildSchemaRuntimeData } from "./fieldMap.ts";
 import { runtimeSectionDefinitions } from "./runtimeSections.ts";
 import { loadSchemaFromEndpoint, loadSchemaFromIntrospectionJson, resolveRootTypeNames } from "./schema.ts";
-import { assembleGeneratedFile, renderClientConfig, renderRuntimeDataLiterals } from "./typescriptMap.ts";
+import { assembleGeneratedFile, preserveExistingConfiguration, renderClientConfig, renderRuntimeDataLiterals } from "./typescriptMap.ts";
 import { renderOperationExports, renderTypeSurface } from "./typeSurface.ts";
 
 export async function readRuntimeSectionSource(sectionFileName: RuntimeSectionFileName): Promise<string> {
@@ -110,14 +110,33 @@ export async function renderGeneratedFile(schemaModel: SchemaModel, options: Gen
 export async function generateClient(options: GenerateOptions): Promise<GeneratedFileWriteResult> {
   const schemaModel = await loadSchemaForGenerateOptions(options);
   const generatedFileText = await renderGeneratedFile(schemaModel, options);
+  const existingFileText = await readExistingFileText(options.output);
+  const preservedFileResult = preserveExistingConfiguration(existingFileText, generatedFileText);
 
   await mkdir(dirname(options.output), { recursive: true });
-  await writeFile(options.output, generatedFileText, "utf8");
+  await writeFile(options.output, preservedFileResult.fileText, "utf8");
 
   return {
-    byteLength: Buffer.byteLength(generatedFileText, "utf8"),
+    byteLength: Buffer.byteLength(preservedFileResult.fileText, "utf8"),
+    configurationPreserved: preservedFileResult.configurationPreserved,
     outputFile: options.output,
   };
+}
+
+async function readExistingFileText(outputFilePath: string): Promise<string | undefined> {
+  try {
+    return await readFile(outputFilePath, "utf8");
+  } catch (readError) {
+    if (isMissingFileError(readError)) {
+      return undefined;
+    }
+
+    throw readError;
+  }
+}
+
+function isMissingFileError(readError: unknown): boolean {
+  return readError instanceof Error && "code" in readError && (readError as { code: string }).code === "ENOENT";
 }
 
 async function loadSchemaForGenerateOptions(options: GenerateOptions): Promise<SchemaModel> {
@@ -160,6 +179,7 @@ export type GenerateOptions = {
 };
 
 export type GeneratedFileWriteResult = {
-  outputFile: string;
   byteLength: number;
+  configurationPreserved: boolean;
+  outputFile: string;
 };
