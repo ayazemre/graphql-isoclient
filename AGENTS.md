@@ -13,3 +13,4 @@
 - A request map is plain data. The reserved key is `__arguments` for the arguments of the field that holds the map. Scalar and composite fields are selected by including their name as a key with a `true` value. There is one spelling of each key, spelled out in full.
 - An operation resolves with the data of the operation, and a GraphQL error is thrown as an `OperationError` that carries the reported errors and the partial data.
 - Lint is run with `oxlint --fix`, so the fixer applies the rules and the author does not correct them by hand. Run `npm run lint` before committing.
+- A substantial functionality change must bump the package version, add a matching `CHANGELOG.md` entry, and keep `README.md` consistent before pushing. `check_changelog_version` must pass and the integrity checks must be green.

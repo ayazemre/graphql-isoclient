@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.2] - 2026-10-27
+
+### Fixed
+
+- Generated clients now emit input object and enum types, so argument types such as `UpdateUserAddressInput` resolve.
+- `mutation` and `subscription` now unwrap single-key selections at runtime, matching `query` and their declared return types.
+
 ## [0.4.1] - 2026-10-27
 
 ### Changed

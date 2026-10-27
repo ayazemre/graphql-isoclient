@@ -151,6 +151,12 @@ export function cliTests() {
           const response = await clientModule.query({ users: { email: true, id: true, username: true } });
           assert.equal(response?.[0]?.username, "alice");
 
+          if (schemaFile.includes("Mutation")) {
+            const mutationResponse = await clientModule.mutation({ createTodo: { __arguments: { title: "buy bread" }, id: true, title: true } });
+            assert.equal(mutationResponse?.id, "3");
+            assert.equal(mutationResponse?.title, "buy bread");
+          }
+
           if (schemaFile.includes("Subscription")) {
             const subscriptionClientModule = await import(outputFile);
             const events = [];

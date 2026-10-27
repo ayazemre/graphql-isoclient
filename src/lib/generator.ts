@@ -3,7 +3,9 @@ import { dirname } from "node:path";
 
 import type {
   SchemaArgumentModel,
+  SchemaEnumTypeModel,
   SchemaFieldModel,
+  SchemaInputObjectTypeModel,
   SchemaInterfaceTypeModel,
   SchemaModel,
   SchemaObjectTypeModel,
@@ -50,6 +52,18 @@ function findTypeModel(schemaModel: SchemaModel, name: string): SchemaTypeModel 
 }
 
 function renderObjectType(typeModel: SchemaTypeModel, schemaModel: SchemaModel): string {
+  if (typeModel.kind === "INPUT_OBJECT") {
+    const inputFields = (typeModel as SchemaInputObjectTypeModel).inputFields;
+    const fields = inputFields
+      .map((inputField) => {
+        const optionalMarker = inputField.typeReference.kind === "NON_NULL" ? "" : "?";
+        return `  ${inputField.name}${optionalMarker}: ${tsType(inputField.typeReference, schemaModel)};`;
+      })
+      .join("\n");
+
+    return `export type ${typeModel.name} = {\n${fields}\n};`;
+  }
+
   if (typeModel.kind !== "OBJECT" && typeModel.kind !== "INTERFACE") {
     return "";
   }
@@ -67,8 +81,9 @@ function renderObjectType(typeModel: SchemaTypeModel, schemaModel: SchemaModel):
 export function renderTypeSurface(schemaModel: SchemaModel): string {
   const objectTypes = schemaModel.types
     .filter(
-      (typeModel): typeModel is SchemaObjectTypeModel | SchemaInterfaceTypeModel =>
-        (typeModel.kind === "OBJECT" || typeModel.kind === "INTERFACE") && typeModel.name.startsWith("__") === false,
+      (typeModel): typeModel is SchemaObjectTypeModel | SchemaInterfaceTypeModel | SchemaInputObjectTypeModel =>
+        (typeModel.kind === "OBJECT" || typeModel.kind === "INTERFACE" || typeModel.kind === "INPUT_OBJECT") &&
+        typeModel.name.startsWith("__") === false,
     )
     .map((typeModel) => renderObjectType(typeModel, schemaModel))
     .filter((renderedType) => renderedType.length > 0);
@@ -141,7 +156,15 @@ export function renderTypeSurface(schemaModel: SchemaModel): string {
 
   const resultOfHelper = `export type ResultOf<Base, Selection> =\n  Selection extends true\n    ? Base\n    : Base extends (infer U)[]\n      ? ResultOf<U, Selection>[]\n      : Base extends object\n        ? { [K in keyof Selection & keyof Base]: ResultOf<Base[K & keyof Base], Selection[K]> }\n        : Base;`;
 
-  return [resultOfHelper, ...objectTypes, ...rootTypeAliases, ...requestTypes, ...resultTypes].join("\n\n");
+  const enumTypes = schemaModel.types
+    .filter((typeModel) => typeModel.kind === "ENUM" && typeModel.name.startsWith("__") === false)
+    .map((typeModel) => {
+      const enumTypeModel = typeModel as SchemaEnumTypeModel;
+      const values = enumTypeModel.enumValues.map((enumValue) => JSON.stringify(enumValue.name)).join(" | ");
+      return `export type ${enumTypeModel.name} = ${values};`;
+    });
+
+  return [resultOfHelper, ...enumTypes, ...objectTypes, ...rootTypeAliases, ...requestTypes, ...resultTypes].join("\n\n");
 }
 
 export function renderClientConfig(endpoint: string | undefined): string {
@@ -203,6 +226,12 @@ export function renderMutationFunction(): string {
     throw new Error(result.errors.map((error: { message?: string }) => error.message ?? "GraphQL error").join("; "));
   }
 
+  const selectedKeys = Object.keys(operation);
+
+  if (selectedKeys.length === 1) {
+    return result.data[selectedKeys[0]] as MutationReturnType<MutationOperation>;
+  }
+
   return result.data as MutationReturnType<MutationOperation>;
 }`;
 }
@@ -210,6 +239,7 @@ export function renderMutationFunction(): string {
 export function renderSubscriptionFunction(): string {
   return `export async function* subscription<SubscriptionOperation extends SubscriptionSelection>(operation: SubscriptionOperation, requestOptions: RequestOptions = clientConfig): AsyncGenerator<SubscriptionReturnType<SubscriptionOperation>, void, unknown> {
   const endpoint = (requestOptions.endpoint ?? clientConfig.endpoint) as string;
+  const selectedKeys = Object.keys(operation);
   const queryText = buildQuery(operation, subscriptionRuntimeModel, "subscription");
   const response = await fetch(endpoint + "?query=" + encodeURIComponent(queryText), {
     headers: { accept: "text/event-stream", ...clientConfig.headers, ...requestOptions.headers },
@@ -246,7 +276,11 @@ export function renderSubscriptionFunction(): string {
           }
 
           if (parsed.data !== undefined) {
-            yield parsed.data as SubscriptionReturnType<SubscriptionOperation>;
+            if (selectedKeys.length === 1) {
+              yield parsed.data[selectedKeys[0]] as SubscriptionReturnType<SubscriptionOperation>;
+            } else {
+              yield parsed.data as SubscriptionReturnType<SubscriptionOperation>;
+            }
           }
         }
       }
