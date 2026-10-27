@@ -13,11 +13,40 @@ type ParsedCliArguments = {
   schemaSource: string;
 };
 
-function parseCliArguments(argumentList: string[]): ParsedCliArguments {
+type HeaderParseResult = { kind: "success"; headers: Record<string, string> } | { kind: "failure"; errorMessage: string };
+
+function parseHeadersJson(headersText: string): HeaderParseResult {
+  let parsedValue: unknown;
+
+  try {
+    parsedValue = JSON.parse(headersText);
+  } catch {
+    return { errorMessage: '--headers must be valid JSON, for example --headers=\'{"authorization":"Bearer token"}\'', kind: "failure" };
+  }
+
+  if (parsedValue === null || typeof parsedValue !== "object" || Array.isArray(parsedValue)) {
+    return { errorMessage: "--headers must be a JSON object of header names to values", kind: "failure" };
+  }
+
   const headers: Record<string, string> = {};
+
+  for (const [headerName, headerValue] of Object.entries(parsedValue)) {
+    if (typeof headerValue !== "string" && typeof headerValue !== "number" && typeof headerValue !== "boolean") {
+      return { errorMessage: `--headers value for "${headerName}" must be a string, number, or boolean`, kind: "failure" };
+    }
+
+    headers[headerName] = String(headerValue);
+  }
+
+  return { headers, kind: "success" };
+}
+
+type ParsedCliArgumentsResult = { kind: "success"; parsedArguments: ParsedCliArguments } | { kind: "failure"; errorMessage: string };
+
+function parseCliArguments(argumentList: string[]): ParsedCliArgumentsResult {
+  let headers: Record<string, string> = {};
   let outputPath = "";
   let schemaSource = "";
-  const positionalArguments: string[] = [];
 
   for (const argument of argumentList) {
     if (argument.startsWith("--schema-source=")) {
@@ -25,47 +54,27 @@ function parseCliArguments(argumentList: string[]): ParsedCliArguments {
     } else if (argument.startsWith("--output=")) {
       outputPath = argument.slice("--output=".length);
     } else if (argument.startsWith("--headers=")) {
-      const headerValue = argument.slice("--headers=".length);
+      const headersResult = parseHeadersJson(argument.slice("--headers=".length));
 
-      try {
-        const parsedHeaders = JSON.parse(headerValue) as Record<string, unknown>;
-
-        if (parsedHeaders !== null && typeof parsedHeaders === "object" && Array.isArray(parsedHeaders) === false) {
-          for (const [headerName, headerValueEntry] of Object.entries(parsedHeaders)) {
-            headers[headerName] = String(headerValueEntry);
-          }
-        }
-      } catch {
-        // Ignore malformed header JSON and fall back to individual header flags.
+      if (headersResult.kind === "failure") {
+        return headersResult;
       }
-    } else if (argument.startsWith("--header=")) {
-      const headerEntry = argument.slice("--header=".length);
-      const separatorIndex = headerEntry.indexOf(":");
 
-      if (separatorIndex !== -1) {
-        const headerName = headerEntry.slice(0, separatorIndex).trim();
-        const headerValue = headerEntry.slice(separatorIndex + 1).trim();
-
-        headers[headerName] = headerValue;
-      }
-    } else if (argument.startsWith("--") === false) {
-      positionalArguments.push(argument);
+      headers = headersResult.headers;
     }
   }
 
-  if (schemaSource === "" && positionalArguments.length >= 1) {
-    schemaSource = positionalArguments[0];
-  }
-
-  if (outputPath === "" && positionalArguments.length >= 2) {
-    outputPath = positionalArguments[1];
-  }
-
-  return { headers, outputPath, schemaSource };
+  return { kind: "success", parsedArguments: { headers, outputPath, schemaSource } };
 }
 
 async function main(): Promise<void> {
-  const parsedArguments = parseCliArguments(process.argv.slice(2));
+  const parsedArgumentsResult = parseCliArguments(process.argv.slice(2));
+
+  if (parsedArgumentsResult.kind === "failure") {
+    throw new Error(parsedArgumentsResult.errorMessage);
+  }
+
+  const parsedArguments = parsedArgumentsResult.parsedArguments;
   const cliInput = cliInputSchema.parse({
     headers: parsedArguments.headers,
     outputPath: parsedArguments.outputPath,

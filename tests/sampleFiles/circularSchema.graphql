@@ -1,0 +1,36 @@
+type User {
+  id: ID!
+  username: String
+  friends: [User]
+  todos: [Todo]
+}
+type Todo {
+  id: ID!
+  title: String
+  owner: User
+}
+input TodoFilterInput {
+  completed: Boolean
+  ownerId: ID
+}
+input TodoCreateInput {
+  title: String!
+  owner: UserReferenceInput
+}
+input UserReferenceInput {
+  id: ID!
+}
+type Query {
+  users: [User]
+  todos(filter: TodoFilterInput): [Todo]
+}
+type Mutation {
+  createTodo(input: TodoCreateInput!): Todo
+}
+type TodoChange {
+  type: String
+  todo: Todo
+}
+type Subscription {
+  todoChanges(filter: TodoFilterInput): TodoChange
+}

@@ -1,0 +1,22 @@
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+input AccountFilterInput {
+  status: AccountStatus
+}
+
+type Account {
+  id: ID!
+  name: String
+  status: AccountStatus
+}
+
+type Query {
+  accounts(status: AccountStatus, filter: AccountFilterInput): [Account]
+}
+
+type Mutation {
+  setAccountStatus(id: ID!, status: AccountStatus!): Account
+}

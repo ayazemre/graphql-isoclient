@@ -119,6 +119,38 @@ export async function* subscription<SubscriptionOperation extends SubscriptionSe
 }
 
 function buildQuery(operation: unknown, runtimeModel: unknown, operationType: string = "query"): string {
+  function serializeInputValue(value: unknown): string {
+    if (value === null || value === undefined) {
+      return "null";
+    }
+
+    if (typeof value === "boolean") {
+      return value ? "true" : "false";
+    }
+
+    if (typeof value === "number") {
+      return String(value);
+    }
+
+    if (typeof value === "string") {
+      return JSON.stringify(value);
+    }
+
+    if (Array.isArray(value)) {
+      return "[" + value.map(serializeInputValue).join(", ") + "]";
+    }
+
+    if (typeof value === "object") {
+      const entries = Object.entries(value as Record<string, unknown>).map(
+        ([entryKey, entryValue]) => entryKey + ": " + serializeInputValue(entryValue),
+      );
+
+      return "{" + entries.join(", ") + "}";
+    }
+
+    return JSON.stringify(value);
+  }
+
   function selection(requestValue: unknown, modelValue: unknown): string {
     if (requestValue === null || typeof requestValue !== "object") {
       return "";
@@ -138,7 +170,7 @@ function buildQuery(operation: unknown, runtimeModel: unknown, operationType: st
             : [];
         const argumentsText =
           argumentEntries.length > 0
-            ? "(" + argumentEntries.map(([argumentName, argumentValue]) => argumentName + ": " + JSON.stringify(argumentValue)).join(", ") + ")"
+            ? "(" + argumentEntries.map(([argumentName, argumentValue]) => argumentName + ": " + serializeInputValue(argumentValue)).join(", ") + ")"
             : "";
         const nestedSelection = nestedRequest !== null && typeof nestedRequest === "object" ? selection(nestedRequest, nestedModel) : "";
         const body = nestedSelection.length > 0 ? " { " + nestedSelection + " }" : "";
@@ -173,7 +205,7 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
-export type ResultOf<Base, Selection> = Selection extends true
+type ResultOf<Base, Selection> = Selection extends true
   ? Base
   : Base extends (infer U)[]
     ? ResultOf<U, Selection>[]
@@ -216,20 +248,20 @@ export type Subscription = {
   listedTodoChanges?: TodoChange;
 };
 
-export type QueryFields = {
+type QueryFields = {
   user: User;
   users: User[];
   todo: Todo;
   todos: Todo[];
 };
 
-export type MutationFields = {
+type MutationFields = {
   createTodo: Todo;
   updateTodo: Todo;
   deleteTodo: Todo;
 };
 
-export type SubscriptionFields = {
+type SubscriptionFields = {
   listedTodoChanges: TodoChange;
 };
 
@@ -268,11 +300,11 @@ export type SubscriptionSelection = {
   listedTodoChanges?: TodoChangeSelection;
 };
 
-export type QueryResult<Request> = {
+type QueryResult<Request> = {
   [K in keyof Request & keyof QueryFields]: ResultOf<QueryFields[K & keyof QueryFields], Request[K]>;
 };
 
-export type QuerySingleKey<Request> = {
+type QuerySingleKey<Request> = {
   [K in keyof QueryFields]: Request extends Record<K, any> & { [P in Exclude<keyof Request, K>]?: never } ? K : never;
 }[keyof QueryFields];
 
@@ -283,11 +315,11 @@ export type QueryReturnType<Request> =
       : QueryResult<Request>
     : QueryResult<Request>;
 
-export type MutationResult<Request> = {
+type MutationResult<Request> = {
   [K in keyof Request & keyof MutationFields]: ResultOf<MutationFields[K & keyof MutationFields], Request[K]>;
 };
 
-export type MutationSingleKey<Request> = {
+type MutationSingleKey<Request> = {
   [K in keyof MutationFields]: Request extends Record<K, any> & { [P in Exclude<keyof Request, K>]?: never } ? K : never;
 }[keyof MutationFields];
 
@@ -298,11 +330,11 @@ export type MutationReturnType<Request> =
       : MutationResult<Request>
     : MutationResult<Request>;
 
-export type SubscriptionResult<Request> = {
+type SubscriptionResult<Request> = {
   [K in keyof Request & keyof SubscriptionFields]: ResultOf<SubscriptionFields[K & keyof SubscriptionFields], Request[K]>;
 };
 
-export type SubscriptionSingleKey<Request> = {
+type SubscriptionSingleKey<Request> = {
   [K in keyof SubscriptionFields]: Request extends Record<K, any> & { [P in Exclude<keyof Request, K>]?: never } ? K : never;
 }[keyof SubscriptionFields];
 

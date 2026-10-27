@@ -1,210 +1,217 @@
 import { strict as assert } from "node:assert";
-import { spawn } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, test } from "node:test";
+import { after, before, describe, test } from "node:test";
 
-import { startGraphqlServer } from "../utilities.ts";
+import {
+  mutationResolvers,
+  queryMutationSchemaPath,
+  queryMutationSubscriptionSchemaPath,
+  queryResolvers,
+  querySchemaPath,
+  readSchemaSdl,
+  requiredHeaderName,
+  requiredHeaderValue,
+  runCli,
+  startGraphqlServer,
+  subscriptionResolvers,
+  temporaryDirectoryPath,
+  type RunningGraphqlServer,
+} from "../utilities.ts";
 
-const repositoryRootPath = new URL("../../", import.meta.url).pathname;
-const cliPath = join(repositoryRootPath, "dist", "cli.js");
-
-const schemaFiles = [
-  "tests/sampleFiles/querySchema.graphql",
-  "tests/sampleFiles/queryMutationSchema.graphql",
-  "tests/sampleFiles/queryMutationSubscriptionSchema.graphql",
+const queryExports = ["query", "QuerySelection", "QueryReturnType"];
+const mutationExports = ["mutation", "MutationSelection", "MutationReturnType"];
+const subscriptionExports = ["subscription", "SubscriptionSelection", "SubscriptionReturnType"];
+const forbiddenExports = [
+  "ResultOf",
+  "QueryResult",
+  "QuerySingleKey",
+  "QueryFields",
+  "MutationResult",
+  "MutationSingleKey",
+  "MutationFields",
+  "SubscriptionFields",
 ];
-
-function runCli(argumentsList: string[]): Promise<{ exitCode: number; stderr: string; stdout: string }> {
-  return new Promise((resolve) => {
-    const childProcess = spawn(process.execPath, [cliPath, ...argumentsList]);
-    let standardOutput = "";
-    let standardError = "";
-
-    childProcess.stdout.on("data", (chunk: Buffer) => {
-      standardOutput += chunk.toString("utf8");
-    });
-
-    childProcess.stderr.on("data", (chunk: Buffer) => {
-      standardError += chunk.toString("utf8");
-    });
-
-    childProcess.on("close", (exitCode) => {
-      resolve({ exitCode: exitCode ?? 1, stderr: standardError, stdout: standardOutput });
-    });
-  });
-}
 
 export function cliTests() {
   return describe("Command Line Interface", function () {
-    test("Missing Arguments", async () => {
+    let server: RunningGraphqlServer;
+
+    before(async () => {
+      server = await startGraphqlServer(readSchemaSdl(queryMutationSubscriptionSchemaPath), {
+        ...queryResolvers,
+        ...mutationResolvers,
+        ...subscriptionResolvers,
+      });
+    });
+
+    after(async () => {
+      await server.stop();
+    });
+
+    test("Query Only", async () => {
+      await mkdir(temporaryDirectoryPath, { recursive: true });
+      const outputFile = join(temporaryDirectoryPath, "cli-query-only.ts");
+
+      const result = await runCli([`--schema-source=${querySchemaPath}`, `--output=${outputFile}`]);
+
+      assert.equal(result.exitCode, 0, result.stderr);
+      const generatedFile = await readFile(outputFile, "utf8");
+      for (const exportName of queryExports) {
+        assert.match(generatedFile, new RegExp(`export (async )?(function\\*? |type |const )${exportName}\\b`));
+      }
+      for (const exportName of [...mutationExports, ...subscriptionExports, ...forbiddenExports]) {
+        assert.doesNotMatch(generatedFile, new RegExp(`export (async )?(function\\*? |type |const )${exportName}\\b`));
+      }
+    });
+
+    test("Query And Mutation", async () => {
+      await mkdir(temporaryDirectoryPath, { recursive: true });
+      const outputFile = join(temporaryDirectoryPath, "cli-query-mutation.ts");
+
+      const result = await runCli([`--schema-source=${queryMutationSchemaPath}`, `--output=${outputFile}`]);
+
+      assert.equal(result.exitCode, 0, result.stderr);
+      const generatedFile = await readFile(outputFile, "utf8");
+      for (const exportName of [...queryExports, ...mutationExports]) {
+        assert.match(generatedFile, new RegExp(`export (async )?(function\\*? |type |const )${exportName}\\b`));
+      }
+      for (const exportName of [...subscriptionExports, ...forbiddenExports]) {
+        assert.doesNotMatch(generatedFile, new RegExp(`export (async )?(function\\*? |type |const )${exportName}\\b`));
+      }
+    });
+
+    test("Query Mutation And Subscription", async () => {
+      await mkdir(temporaryDirectoryPath, { recursive: true });
+      const outputFile = join(temporaryDirectoryPath, "cli-query-mutation-subscription.ts");
+
+      const result = await runCli([`--schema-source=${queryMutationSubscriptionSchemaPath}`, `--output=${outputFile}`]);
+
+      assert.equal(result.exitCode, 0, result.stderr);
+      const generatedFile = await readFile(outputFile, "utf8");
+      for (const exportName of [...queryExports, ...mutationExports, ...subscriptionExports]) {
+        assert.match(generatedFile, new RegExp(`export (async )?(function\\*? |type |const )${exportName}\\b`));
+      }
+      for (const exportName of forbiddenExports) {
+        assert.doesNotMatch(generatedFile, new RegExp(`export (async )?(function\\*? |type |const )${exportName}\\b`));
+      }
+    });
+
+    test("Endpoint Generates Client", async () => {
+      await mkdir(temporaryDirectoryPath, { recursive: true });
+      const outputFile = join(temporaryDirectoryPath, "cli-endpoint.ts");
+
+      const result = await runCli([`--schema-source=${server.endpoint}`, `--output=${outputFile}`]);
+
+      assert.equal(result.exitCode, 0, result.stderr);
+      const clientModule = await import(outputFile);
+      const response = await clientModule.query({ users: { email: true, id: true, username: true } });
+      assert.equal(response?.[0]?.username, "alice");
+    });
+
+    test("Missing Arguments Exits One", async () => {
       const result = await runCli([]);
 
       assert.equal(result.exitCode, 1);
     });
 
-    test("Invalid Schema Source", async () => {
+    test("Invalid Schema Source Exits One", async () => {
       const result = await runCli([
-        "--schema-source=/tmp/does-not-exist.graphql",
-        `--output=${join(repositoryRootPath, "tests", "temporary", "invalid.ts")}`,
+        `--schema-source=${join(temporaryDirectoryPath, "does-not-exist.graphql")}`,
+        `--output=${join(temporaryDirectoryPath, "invalid.ts")}`,
       ]);
 
       assert.equal(result.exitCode, 1);
     });
 
-    for (const schemaFile of schemaFiles) {
-      test(`Generate from ${schemaFile.split("/").pop()}`, async () => {
-        const outputDirectory = join(repositoryRootPath, "tests", "temporary");
-        await mkdir(outputDirectory, { recursive: true });
-        const outputFile = join(outputDirectory, `${schemaFile.split("/").pop()?.replace(".graphql", "") ?? "client"}.ts`);
-        const schemaPath = join(repositoryRootPath, schemaFile);
+    test("Headers Reach Introspection Endpoint", async () => {
+      const headerServer = await startGraphqlServer(readSchemaSdl(querySchemaPath), queryResolvers, { requireHeader: true });
 
-        const result = await runCli([`--schema-source=${schemaPath}`, `--output=${outputFile}`]);
+      try {
+        await mkdir(temporaryDirectoryPath, { recursive: true });
+        const outputFile = join(temporaryDirectoryPath, "cli-headers-valid.ts");
+        const headersArgument = `--headers=${JSON.stringify({ [requiredHeaderName]: requiredHeaderValue })}`;
+
+        const result = await runCli([`--schema-source=${headerServer.endpoint}`, `--output=${outputFile}`, headersArgument]);
 
         assert.equal(result.exitCode, 0, result.stderr);
         const generatedFile = await readFile(outputFile, "utf8");
-        assert.ok(generatedFile.includes("export async function query"));
-      });
-    }
+        assert.match(generatedFile, /export async function query\b/);
+      } finally {
+        await headerServer.stop();
+      }
+    });
 
-    for (const schemaFile of schemaFiles) {
-      test(`Endpoint from ${schemaFile.split("/").pop()}`, async () => {
-        const sdl = await readFile(join(repositoryRootPath, schemaFile), "utf8");
+    test("Missing Header Fails Introspection", async () => {
+      const headerServer = await startGraphqlServer(readSchemaSdl(querySchemaPath), queryResolvers, { requireHeader: true });
 
-        const users = [
-          { email: "alice@example.com", id: "1", username: "alice" },
-          { email: "bob@example.com", id: "2", username: "bob" },
-        ];
+      try {
+        await mkdir(temporaryDirectoryPath, { recursive: true });
+        const outputFile = join(temporaryDirectoryPath, "cli-headers-missing.ts");
 
-        const todos = [
-          { completed: false, id: "1", owner: users[0], title: "Buy milk" },
-          { completed: true, id: "2", owner: users[1], title: "Walk dog" },
-        ];
+        const result = await runCli([`--schema-source=${headerServer.endpoint}`, `--output=${outputFile}`]);
 
-        const resolvers: Record<string, any> = {
-          Query: {
-            todo: (_: unknown, args: { id: string }) => todos.find((entry) => entry.id === args.id) ?? null,
-            todos: (_: unknown, args: { limit?: number }) => (args.limit === undefined ? todos : todos.slice(0, args.limit)),
-            user: (_: unknown, args: { id: string }) => users.find((entry) => entry.id === args.id) ?? null,
-            users: () => users,
-          },
-        };
+        assert.equal(result.exitCode, 1);
+        assert.match(result.stderr, /Introspection request failed with status 401/);
+      } finally {
+        await headerServer.stop();
+      }
+    });
 
-        if (schemaFile.includes("Mutation")) {
-          resolvers.Mutation = {
-            createTodo: (_: unknown, args: { ownerId?: string; title: string }) => ({
-              completed: false,
-              id: "3",
-              owner: users.find((entry) => entry.id === (args.ownerId ?? "1")) ?? users[0],
-              title: args.title,
-            }),
-            deleteTodo: (_: unknown, args: { id: string }) => todos.find((entry) => entry.id === args.id) ?? null,
-            updateTodo: (_: unknown, args: { completed?: boolean; id: string; title?: string }) => {
-              const todo = todos.find((entry) => entry.id === args.id);
+    test("Wrong Header Value Fails Introspection", async () => {
+      const headerServer = await startGraphqlServer(readSchemaSdl(querySchemaPath), queryResolvers, { requireHeader: true });
 
-              if (todo === undefined) {
-                return null;
-              }
+      try {
+        await mkdir(temporaryDirectoryPath, { recursive: true });
+        const outputFile = join(temporaryDirectoryPath, "cli-headers-wrong.ts");
+        const headersArgument = `--headers=${JSON.stringify({ [requiredHeaderName]: "wrong-key" })}`;
 
-              return {
-                ...todo,
-                completed: args.completed ?? todo.completed,
-                title: args.title ?? todo.title,
-              };
-            },
-          };
-        }
+        const result = await runCli([`--schema-source=${headerServer.endpoint}`, `--output=${outputFile}`, headersArgument]);
 
-        if (schemaFile.includes("Subscription")) {
-          resolvers.Subscription = {
-            listedTodoChanges: {
-              subscribe: () =>
-                (async function* () {
-                  for (let index = 0; index < 3; index += 1) {
-                    await new Promise((resolve) => setTimeout(resolve, 1000));
-                    yield {
-                      listedTodoChanges: {
-                        todo: { completed: false, id: "1", owner: users[0], title: "Buy milk" },
-                        type: "created",
-                      },
-                    };
-                  }
-                })(),
-            },
-          };
-        }
+        assert.equal(result.exitCode, 1);
+        assert.match(result.stderr, /Introspection request failed with status 401/);
+      } finally {
+        await headerServer.stop();
+      }
+    });
 
-        const server = await startGraphqlServer(sdl, resolvers);
+    test("Malformed Headers JSON Exits One", async () => {
+      await mkdir(temporaryDirectoryPath, { recursive: true });
+      const outputFile = join(temporaryDirectoryPath, "cli-headers-malformed.ts");
 
-        try {
-          const outputDirectory = join(repositoryRootPath, "tests", "temporary");
-          await mkdir(outputDirectory, { recursive: true });
-          const outputFile = join(outputDirectory, `endpoint-${schemaFile.split("/").pop()?.replace(".graphql", "")}.ts`);
+      const result = await runCli([`--schema-source=${querySchemaPath}`, `--output=${outputFile}`, "--headers={not json"]);
 
-          const result = await runCli([server.endpoint, outputFile]);
+      assert.equal(result.exitCode, 1);
+      assert.match(result.stderr, /--headers must be valid JSON/);
+    });
 
-          assert.equal(result.exitCode, 0, result.stderr);
-          const generatedFile = await readFile(outputFile, "utf8");
-          assert.ok(generatedFile.includes("export async function query"));
+    test("Headers Array Exits One", async () => {
+      await mkdir(temporaryDirectoryPath, { recursive: true });
+      const outputFile = join(temporaryDirectoryPath, "cli-headers-array.ts");
 
-          const clientModule = await import(outputFile);
-          const response = await clientModule.query({ users: { email: true, id: true, username: true } });
-          assert.equal(response?.[0]?.username, "alice");
+      const result = await runCli([`--schema-source=${querySchemaPath}`, `--output=${outputFile}`, '--headers=["a"]']);
 
-          if (schemaFile.includes("Mutation")) {
-            const mutationResponse = await clientModule.mutation({ createTodo: { __arguments: { title: "buy bread" }, id: true, title: true } });
-            assert.equal(mutationResponse?.id, "3");
-            assert.equal(mutationResponse?.title, "buy bread");
-          }
+      assert.equal(result.exitCode, 1);
+      assert.match(result.stderr, /--headers must be a JSON object/);
+    });
 
-          if (schemaFile.includes("Subscription")) {
-            const subscriptionClientModule = await import(outputFile);
-            const events = [];
+    test("Headers Nested Value Exits One", async () => {
+      await mkdir(temporaryDirectoryPath, { recursive: true });
+      const outputFile = join(temporaryDirectoryPath, "cli-headers-nested.ts");
 
-            for await (const event of subscriptionClientModule.subscription({ listedTodoChanges: { todo: { id: true, title: true } } })) {
-              events.push(event);
+      const result = await runCli([`--schema-source=${querySchemaPath}`, `--output=${outputFile}`, '--headers={"a":{"b":1}}']);
 
-              if (events.length === 3) {
-                break;
-              }
-            }
+      assert.equal(result.exitCode, 1);
+      assert.match(result.stderr, /must be a string, number, or boolean/);
+    });
 
-            assert.equal(events.length, 3);
-          }
+    test("Positional Arguments Are Rejected", async () => {
+      await mkdir(temporaryDirectoryPath, { recursive: true });
+      const outputFile = join(temporaryDirectoryPath, "cli-positional.ts");
 
-          const errorServerSdl = await readFile(join(repositoryRootPath, "tests/sampleFiles/querySchema.graphql"), "utf8");
-          const errorServer = await startGraphqlServer(errorServerSdl, {
-            Query: {
-              user: () => {
-                throw new Error("resolver boom");
-              },
-              users: () => [{ email: "alice@example.com", id: "1", username: "alice" }],
-            },
-          });
+      const result = await runCli([querySchemaPath, outputFile]);
 
-          try {
-            const errorOutputFile = join(outputDirectory, `endpoint-error-${schemaFile.split("/").pop()?.replace(".graphql", "")}.ts`);
-            const errorResult = await runCli([errorServer.endpoint, errorOutputFile]);
-            assert.equal(errorResult.exitCode, 0, errorResult.stderr);
-
-            const errorClientModule = await import(errorOutputFile);
-            await assert.rejects(
-              () => errorClientModule.query({ user: { __arguments: { id: "1" }, email: true, id: true, username: true } }),
-              /Unexpected error|resolver boom|GraphQL error/,
-            );
-          } finally {
-            await errorServer.stop();
-          }
-
-          const transportClientModule = await import(outputFile);
-          await assert.rejects(
-            () => transportClientModule.query({ users: { email: true, id: true, username: true } }, { endpoint: "http://127.0.0.1:1/graphql" }),
-            /fetch failed|ECONNREFUSED|network/i,
-          );
-        } finally {
-          await server.stop();
-        }
-      });
-    }
+      assert.equal(result.exitCode, 1);
+    });
   });
 }

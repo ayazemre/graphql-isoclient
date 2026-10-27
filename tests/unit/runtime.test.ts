@@ -11,5 +11,17 @@ export function runtimeTests() {
       const runtimeModel = createRuntimeModel(schemaModel);
       assert.equal(runtimeModel.hello, true);
     });
+
+    test("Cyclic Type Is Omitted", () => {
+      const schemaModel = parseSDLFile("type User { id: ID! friend: User } type Query { user: User }");
+      const runtimeModel = createRuntimeModel(schemaModel);
+      assert.deepEqual(runtimeModel, { user: { id: true } });
+    });
+
+    test("Runtime Model Has No Scalar Marker", () => {
+      const schemaModel = parseSDLFile("type User { id: ID! friend: User } type Query { user: User }");
+      const runtimeModelText = JSON.stringify(createRuntimeModel(schemaModel));
+      assert.equal(runtimeModelText.includes("__scalar"), false);
+    });
   });
 }

@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-10-27
+
+### Changed
+
+- CLI accepts only named flags. Positional arguments and the singular `--header` flag are removed, so `--headers` (JSON) is the only header input.
+- Generated clients export only the public surface: `query`, `mutation`, `subscription`, the `*Selection` and `*ReturnType` types, and the object and enum types. Helper types such as `ResultOf`, `QueryResult`, `QuerySingleKey`, and the `*Fields` aliases are no longer exported.
+- The test suite is split so each end to end suite starts and closes its own server, and shared resolvers and data live in `tests/utilities.ts`.
+- Added end to end tests for circular types (mutual friends, cycles through a type's owner), input object arguments on mutations (scalar and nested fields), and input object filters on subscriptions.
+- Removed a duplicated field assignment in the runtime model builder.
+- The runtime model no longer contains the `__scalar` marker. Cyclic and non-object fields are omitted from the model, and query output is unchanged.
+- `--headers` is parsed with `JSON.parse` and validated. Malformed JSON, a non-object value, or a value that is not a string, number, or boolean now exits 1 with a message instead of being silently ignored.
+
+### Fixed
+
+- Enum arguments are sent unquoted, so `status: ACTIVE` works at the top level, inside input objects, and in mutations. Previously the value was quoted and the server rejected it.
+- `query`, `mutation`, and `subscription` report `request failed with HTTP status N` for non-2xx responses, instead of a JSON `SyntaxError` from parsing an HTML error page.
+- A subscription stream that ends without a trailing blank line delivers its final event instead of dropping it.
+
 ## [0.4.2] - 2026-10-27
 
 ### Fixed
