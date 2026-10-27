@@ -44,7 +44,10 @@ export function subscriptionTests() {
     test("Streams Three Events", async () => {
       const events: unknown[] = [];
 
-      for await (const event of clientModule.subscription({ listedTodoChanges: { todo: { id: true, title: true } } })) {
+      for await (const event of clientModule.subscription(
+        { listedTodoChanges: { todo: { id: true, title: true } } },
+        { endpoint: server.endpoint },
+      )) {
         events.push(event);
 
         if (events.length === 3) {
@@ -58,7 +61,10 @@ export function subscriptionTests() {
     test("Event Contains Todo Id", async () => {
       const events: any[] = [];
 
-      for await (const event of clientModule.subscription({ listedTodoChanges: { todo: { id: true, title: true } } })) {
+      for await (const event of clientModule.subscription(
+        { listedTodoChanges: { todo: { id: true, title: true } } },
+        { endpoint: server.endpoint },
+      )) {
         events.push(event);
 
         if (events.length === 1) {

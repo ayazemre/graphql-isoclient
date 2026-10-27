@@ -38,29 +38,41 @@ export function mutationTests() {
     });
 
     test("Create Todo", async () => {
-      const response = await clientModule.mutation({ createTodo: { __arguments: { title: "buy bread" }, id: true, title: true } });
+      const response = await clientModule.mutation(
+        { createTodo: { __arguments: { title: "buy bread" }, id: true, title: true } },
+        { endpoint: server.endpoint },
+      );
       assert.equal(response?.id, "3");
       assert.equal(response?.title, "buy bread");
     });
 
     test("Update Todo", async () => {
-      const response = await clientModule.mutation({
-        updateTodo: { __arguments: { completed: true, id: "1", title: "updated" }, completed: true, id: true, title: true },
-      });
+      const response = await clientModule.mutation(
+        {
+          updateTodo: { __arguments: { completed: true, id: "1", title: "updated" }, completed: true, id: true, title: true },
+        },
+        { endpoint: server.endpoint },
+      );
       assert.equal(response?.title, "updated");
       assert.equal(response?.completed, true);
     });
 
     test("Delete Todo", async () => {
-      const response = await clientModule.mutation({ deleteTodo: { __arguments: { id: "1" }, id: true, title: true } });
+      const response = await clientModule.mutation(
+        { deleteTodo: { __arguments: { id: "1" }, id: true, title: true } },
+        { endpoint: server.endpoint },
+      );
       assert.equal(response?.id, "1");
     });
 
     test("Multiple Mutations Returns Object", async () => {
-      const response = await clientModule.mutation({
-        createTodo: { __arguments: { title: "a" }, id: true, title: true },
-        deleteTodo: { __arguments: { id: "2" }, id: true },
-      });
+      const response = await clientModule.mutation(
+        {
+          createTodo: { __arguments: { title: "a" }, id: true, title: true },
+          deleteTodo: { __arguments: { id: "2" }, id: true },
+        },
+        { endpoint: server.endpoint },
+      );
       assert.equal(typeof response, "object");
     });
 

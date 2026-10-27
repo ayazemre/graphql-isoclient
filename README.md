@@ -28,7 +28,7 @@ npx graphql-isoclient --schema-source=schema.graphql --output=src/graphql/client
 npx graphql-isoclient --schema-source=introspection.json --output=src/graphql/client.ts
 ```
 
-Headers for the introspection request can be passed as JSON or as repeated name:value pairs.
+Headers for the introspection request are passed as a JSON object.
 
 ```bash
 npx graphql-isoclient --schema-source=https://api.example.com/graphql --output=src/graphql/client.ts --headers='{"authorization":"Bearer token"}'
@@ -42,23 +42,26 @@ import { parseSDLFile } from "graphql-isoclient/lib/parsers";
 
 const schemaModel = parseSDLFile(sdlText);
 
-await generateClientFile(schemaModel, "src/graphql/client.ts", "https://api.example.com/graphql");
+await generateClientFile(schemaModel, "src/graphql/client.ts");
 ```
 
-`generateClientFile` accepts a `SchemaModel`, the output path, and an optional default endpoint baked into the generated client.
+`generateClientFile` accepts a `SchemaModel` and the output path. The generated client holds no endpoint and no headers.
 
 ## Use the generated client
+
+Every operation takes a request map and a request options object. The endpoint is required on each call, and headers are optional.
 
 ```ts
 import { mutation, query } from "./graphql/client.ts";
 
-const userResult = await query({
-  User: { __arguments: { id: "user-1" }, id: true, username: true },
-});
+const requestOptions = {
+  endpoint: "https://api.example.com/graphql",
+  headers: { authorization: "Bearer token" },
+};
 
-const tweetResult = await mutation({
-  createTweet: { __arguments: { body: "hello" }, id: true, body: true },
-});
+const userResult = await query({ User: { __arguments: { id: "user-1" }, id: true, username: true } }, requestOptions);
+
+const tweetResult = await mutation({ createTweet: { __arguments: { body: "hello" }, id: true, body: true } }, requestOptions);
 ```
 
 ## License

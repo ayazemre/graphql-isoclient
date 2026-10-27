@@ -81,11 +81,9 @@ async function main(): Promise<void> {
     schemaSource: parsedArguments.schemaSource,
   });
 
-  const isSchemaSourceUrl = isUrl(cliInput.schemaSource);
-
   const schemaModel = await loadSchemaModel(cliInput.schemaSource, cliInput.headers ?? {});
 
-  await generateClientFile(schemaModel, cliInput.outputPath, isSchemaSourceUrl ? cliInput.schemaSource : undefined);
+  await generateClientFile(schemaModel, cliInput.outputPath);
   console.log(`Generated ${cliInput.outputPath}`);
 }
 

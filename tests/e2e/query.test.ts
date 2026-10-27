@@ -37,28 +37,34 @@ export function queryTests() {
     });
 
     test("Users Returns All", async () => {
-      const response = await clientModule.query({ users: { email: true, id: true, username: true } });
+      const response = await clientModule.query({ users: { email: true, id: true, username: true } }, { endpoint: server.endpoint });
       assert.equal(response?.[0]?.username, "alice");
     });
 
     test("User By Id Returns One", async () => {
-      const response = await clientModule.query({ user: { __arguments: { id: "2" }, email: true, id: true, username: true } });
+      const response = await clientModule.query(
+        { user: { __arguments: { id: "2" }, email: true, id: true, username: true } },
+        { endpoint: server.endpoint },
+      );
       assert.equal(response?.username, "bob");
     });
 
     test("Todos With Limit", async () => {
-      const response = await clientModule.query({ todos: { __arguments: { limit: 1 }, id: true, title: true } });
+      const response = await clientModule.query({ todos: { __arguments: { limit: 1 }, id: true, title: true } }, { endpoint: server.endpoint });
       assert.equal(response?.length, 1);
     });
 
     test("Todo By Id Returns One", async () => {
-      const response = await clientModule.query({ todo: { __arguments: { id: "1" }, id: true, owner: { username: true }, title: true } });
+      const response = await clientModule.query(
+        { todo: { __arguments: { id: "1" }, id: true, owner: { username: true }, title: true } },
+        { endpoint: server.endpoint },
+      );
       assert.equal(response?.title, "Buy milk");
       assert.equal(response?.owner?.username, "alice");
     });
 
     test("Missing User Returns Null", async () => {
-      const response = await clientModule.query({ user: { __arguments: { id: "999" }, id: true } });
+      const response = await clientModule.query({ user: { __arguments: { id: "999" }, id: true } }, { endpoint: server.endpoint });
       assert.equal(response, null);
     });
 

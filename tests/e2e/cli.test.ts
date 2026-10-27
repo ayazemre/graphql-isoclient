@@ -105,7 +105,7 @@ export function cliTests() {
 
       assert.equal(result.exitCode, 0, result.stderr);
       const clientModule = await import(outputFile);
-      const response = await clientModule.query({ users: { email: true, id: true, username: true } });
+      const response = await clientModule.query({ users: { email: true, id: true, username: true } }, { endpoint: server.endpoint });
       assert.equal(response?.[0]?.username, "alice");
     });
 

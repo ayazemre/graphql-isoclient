@@ -167,16 +167,9 @@ export function renderTypeSurface(schemaModel: SchemaModel): string {
   return [resultOfHelper, ...enumTypes, ...objectTypes, ...rootTypeAliases, ...requestTypes, ...resultTypes].join("\n\n");
 }
 
-export function renderClientConfig(endpoint: string | undefined): string {
-  return `const clientConfig = {
-  endpoint: ${JSON.stringify(endpoint)},
-  headers: {},
-};`;
-}
-
 export function renderRequestOptionsType(): string {
   return `type RequestOptions = {
-  endpoint?: string;
+  endpoint: string;
   headers?: Record<string, string>;
 };`;
 }
@@ -189,10 +182,10 @@ export function renderBoundaryComment(): string {
 }
 
 export function renderQueryFunction(): string {
-  return `export async function query<QueryOperation extends QuerySelection>(operation: QueryOperation, requestOptions: RequestOptions = clientConfig): Promise<QueryReturnType<QueryOperation>> {
-  const response = await fetch((requestOptions.endpoint ?? clientConfig.endpoint) as string, {
+  return `export async function query<QueryOperation extends QuerySelection>(operation: QueryOperation, requestOptions: RequestOptions): Promise<QueryReturnType<QueryOperation>> {
+  const response = await fetch(requestOptions.endpoint, {
     body: JSON.stringify({ query: buildQuery(operation, queryRuntimeModel, queryRootTypeName, typeContext, "query") }),
-    headers: { "content-type": "application/json", ...clientConfig.headers, ...requestOptions.headers },
+    headers: { "content-type": "application/json", ...requestOptions.headers },
     method: "POST",
   });
 
@@ -217,10 +210,10 @@ export function renderQueryFunction(): string {
 }
 
 export function renderMutationFunction(): string {
-  return `export async function mutation<MutationOperation extends MutationSelection>(operation: MutationOperation, requestOptions: RequestOptions = clientConfig): Promise<MutationReturnType<MutationOperation>> {
-  const response = await fetch((requestOptions.endpoint ?? clientConfig.endpoint) as string, {
+  return `export async function mutation<MutationOperation extends MutationSelection>(operation: MutationOperation, requestOptions: RequestOptions): Promise<MutationReturnType<MutationOperation>> {
+  const response = await fetch(requestOptions.endpoint, {
     body: JSON.stringify({ query: buildQuery(operation, mutationRuntimeModel, mutationRootTypeName, typeContext, "mutation") }),
-    headers: { "content-type": "application/json", ...clientConfig.headers, ...requestOptions.headers },
+    headers: { "content-type": "application/json", ...requestOptions.headers },
     method: "POST",
   });
 
@@ -245,12 +238,11 @@ export function renderMutationFunction(): string {
 }
 
 export function renderSubscriptionFunction(): string {
-  return `export async function* subscription<SubscriptionOperation extends SubscriptionSelection>(operation: SubscriptionOperation, requestOptions: RequestOptions = clientConfig): AsyncGenerator<SubscriptionReturnType<SubscriptionOperation>, void, unknown> {
-  const endpoint = (requestOptions.endpoint ?? clientConfig.endpoint) as string;
+  return `export async function* subscription<SubscriptionOperation extends SubscriptionSelection>(operation: SubscriptionOperation, requestOptions: RequestOptions): AsyncGenerator<SubscriptionReturnType<SubscriptionOperation>, void, unknown> {
   const selectedKeys = Object.keys(operation);
   const queryText = buildQuery(operation, subscriptionRuntimeModel, subscriptionRootTypeName, typeContext, "subscription");
-  const response = await fetch(endpoint + "?query=" + encodeURIComponent(queryText), {
-    headers: { accept: "text/event-stream", ...clientConfig.headers, ...requestOptions.headers },
+  const response = await fetch(requestOptions.endpoint + "?query=" + encodeURIComponent(queryText), {
+    headers: { accept: "text/event-stream", ...requestOptions.headers },
     method: "GET",
   });
 
@@ -413,8 +405,8 @@ export function renderRuntimeModels(schemaModel: SchemaModel): string {
   return sections.join("\n\n");
 }
 
-export async function generateClientFile(schemaModel: SchemaModel, outputPath: string, endpoint?: string): Promise<void> {
-  const fileSections: string[] = [renderClientConfig(endpoint), renderBoundaryComment(), renderQueryFunction()];
+export async function generateClientFile(schemaModel: SchemaModel, outputPath: string): Promise<void> {
+  const fileSections: string[] = [renderBoundaryComment(), renderQueryFunction()];
 
   if (schemaModel.mutationTypeName !== undefined) {
     fileSections.push(renderMutationFunction());

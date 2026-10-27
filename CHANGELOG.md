@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-10-27
+
+### Changed
+
+- Removed the client configuration from generation. The generated client no longer holds an endpoint or default headers, and `generateClientFile` takes only the schema model and the output path. The CLI no longer bakes the schema URL into the client.
+- Every operation takes a required request options object as its second argument, `{ endpoint, headers? }`, on each call. Omitting the endpoint fails at the request instead of calling a default.
+
 ## [0.5.0] - 2026-10-27
 
 ### Changed
