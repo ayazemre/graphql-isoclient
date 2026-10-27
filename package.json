@@ -1,0 +1,71 @@
+{
+  "name": "graphql-isoclient",
+  "version": "0.4.0",
+  "private": false,
+  "description": "A graphql client generator",
+  "keywords": [
+    "client",
+    "generator",
+    "graphql",
+    "isolated",
+    "single"
+  ],
+  "homepage": "https://github.com/ayazemre/graphql-isoclient#readme",
+  "bugs": {
+    "url": "https://github.com/ayazemre/graphql-isoclient/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "Emre Ayaz",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ayazemre/graphql-isoclient.git"
+  },
+  "bin": {
+    "graphql-isoclient": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./lib/*": {
+      "types": "./dist/lib/*.d.ts",
+      "import": "./dist/lib/*.js"
+    }
+  },
+  "scripts": {
+    "test": "dotenvx run -- node --test-global-setup=./tests/setup.ts --test tests/index.test.ts",
+    "build": "tsc && rolldown -c",
+    "format": "oxfmt",
+    "lint": "oxlint --fix",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "^2.23.0",
+    "@hono/node-server": "^2.1.5",
+    "@types/node": "^26.2.0",
+    "@types/picomatch": "^4.0.3",
+    "graphql": "^17.0.2",
+    "graphql-yoga": "^5.24.6",
+    "hono": "^4.13.14",
+    "oxfmt": "^0.63.0",
+    "oxlint": "^1.78.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "rolldown": "^1.2.4",
+    "rolldown-plugin-dts": "^0.28.2",
+    "tinyglobby": "^0.2.17",
+    "typescript": "^7.0.2"
+  }
+}

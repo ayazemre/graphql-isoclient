@@ -1,0 +1,19 @@
+type User {
+  id: ID!
+  username: String
+  email: String
+}
+
+type Todo {
+  id: ID!
+  title: String
+  completed: Boolean
+  owner: User
+}
+
+type Query {
+  user(id: ID!): User
+  users: [User]
+  todo(id: ID!): Todo
+  todos(limit: Int): [Todo]
+}
