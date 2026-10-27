@@ -43,6 +43,18 @@ await generateClientFile(schemaModel, "src/graphql/client.ts", "https://api.exam
 
 ## Use the generated client
 
+```ts
+import { mutation, query } from "./graphql/client.ts";
+
+const userResult = await query({
+  User: { __arguments: { id: "user-1" }, id: true, username: true },
+});
+
+const tweetResult = await mutation({
+  createTweet: { __arguments: { body: "hello" }, id: true, body: true },
+});
+```
+
 `query` and `mutation` take the request map as the first argument and the request options as the second. The request map describes the fields to read and the arguments to send. `subscription` has the same shape and returns an async iterable.
 
 ### What the generated file contains
