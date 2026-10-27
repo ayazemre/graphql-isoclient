@@ -14,18 +14,24 @@ Requires Node.js 24 or newer to run the generator. The generated client itself r
 
 ## Generate a client
 
-The command line takes the schema source and the output path.
+The command line takes named flags.
 
 ```bash
-npx graphql-isoclient <schemaSource> <outputPath>
+npx graphql-isoclient --schema-source=<source> --output=<path>
 ```
 
 The schema source may be an introspection endpoint, an SDL file, or a saved introspection JSON file.
 
 ```bash
-npx graphql-isoclient https://api.example.com/graphql src/graphql/client.ts
-npx graphql-isoclient schema.graphql src/graphql/client.ts
-npx graphql-isoclient introspection.json src/graphql/client.ts
+npx graphql-isoclient --schema-source=https://api.example.com/graphql --output=src/graphql/client.ts
+npx graphql-isoclient --schema-source=schema.graphql --output=src/graphql/client.ts
+npx graphql-isoclient --schema-source=introspection.json --output=src/graphql/client.ts
+```
+
+Headers for the introspection request can be passed as JSON or as repeated name:value pairs.
+
+```bash
+npx graphql-isoclient --schema-source=https://api.example.com/graphql --output=src/graphql/client.ts --headers='{"authorization":"Bearer token"}'
 ```
 
 From code:

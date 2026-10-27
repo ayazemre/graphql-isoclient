@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2026-10-27
+
+### Changed
+
+- CLI now uses named flags (`--schema-source`, `--output`) and accepts `--headers`/`--header` for introspection requests.
+- Disabled automatic publishing workflow; releases are cut manually.
+
 ## [0.4.0] - 2026-10-27
 
 ### Added

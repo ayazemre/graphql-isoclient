@@ -44,7 +44,10 @@ export function cliTests() {
     });
 
     test("Invalid Schema Source", async () => {
-      const result = await runCli(["/tmp/does-not-exist.graphql", join(repositoryRootPath, "tests", "temporary", "invalid.ts")]);
+      const result = await runCli([
+        "--schema-source=/tmp/does-not-exist.graphql",
+        `--output=${join(repositoryRootPath, "tests", "temporary", "invalid.ts")}`,
+      ]);
 
       assert.equal(result.exitCode, 1);
     });
@@ -56,7 +59,7 @@ export function cliTests() {
         const outputFile = join(outputDirectory, `${schemaFile.split("/").pop()?.replace(".graphql", "") ?? "client"}.ts`);
         const schemaPath = join(repositoryRootPath, schemaFile);
 
-        const result = await runCli([schemaPath, outputFile]);
+        const result = await runCli([`--schema-source=${schemaPath}`, `--output=${outputFile}`]);
 
         assert.equal(result.exitCode, 0, result.stderr);
         const generatedFile = await readFile(outputFile, "utf8");

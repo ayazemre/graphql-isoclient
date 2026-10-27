@@ -122,6 +122,7 @@ export type SchemaTypeModel = z.infer<typeof schemaTypeSchema>;
 export type SchemaModel = z.infer<typeof schemaModelSchema>;
 
 export const cliInputSchema = z.strictObject({
+  headers: z.optional(z.record(z.string(), z.string())),
   outputPath: z.string().check(z.minLength(1)),
   schemaSource: z.string().check(z.minLength(1)),
 });

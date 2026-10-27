@@ -22,14 +22,14 @@ jobs:
       packages: read
     secrets: inherit
 
-  publish:
-    if: github.ref == 'refs/heads/main'
-    needs: [integrity, test]
-    uses: ./.github/workflows/publish.yaml
-    with:
-      registry: npm
-      current_version: ${{ needs.integrity.outputs.current_version }}
-    permissions:
-      contents: read
-      id-token: write
-    secrets: inherit
+#   publish:
+#     if: github.ref == 'refs/heads/main'
+#     needs: [integrity, test]
+#     uses: ./.github/workflows/publish.yaml
+#     with:
+#       registry: npm
+#       current_version: ${{ needs.integrity.outputs.current_version }}
+#     permissions:
+#       contents: read
+#       id-token: write
+#     secrets: inherit

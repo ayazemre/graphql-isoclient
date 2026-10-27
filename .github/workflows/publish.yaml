@@ -1,40 +1,40 @@
-name: Publish
-on:
-  workflow_call:
-    inputs:
-      registry:
-        description: Target registry for the package
-        required: true
-        type: string
-      current_version:
-        description: Version exported by the integrity job
-        required: true
-        type: string
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24.x
-          cache: npm
-          registry-url: https://registry.npmjs.org/
-      - name: Install dependencies
-        run: npm ci
-      - name: Build package
-        run: |
-          . ./repository.sh
-          run_scripts --target_directory="." --scripts="build"
-      - name: Check packed package
-        run: |
-          . ./repository.sh
-          check_package_install --target_directory="."
-      - name: Publish
-        run: |
-          . ./repository.sh
-          publish_new_version --target_directory="." --registry="${{ inputs.registry }}" --current_version="${{ inputs.current_version }}"
+# name: Publish
+# on:
+#   workflow_call:
+#     inputs:
+#       registry:
+#         description: Target registry for the package
+#         required: true
+#         type: string
+#       current_version:
+#         description: Version exported by the integrity job
+#         required: true
+#         type: string
+# jobs:
+#   publish:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       id-token: write
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 24.x
+#           cache: npm
+#           registry-url: https://registry.npmjs.org/
+#       - name: Install dependencies
+#         run: npm ci
+#       - name: Build package
+#         run: |
+#           . ./repository.sh
+#           run_scripts --target_directory="." --scripts="build"
+#       - name: Check packed package
+#         run: |
+#           . ./repository.sh
+#           check_package_install --target_directory="."
+#       - name: Publish
+#         run: |
+#           . ./repository.sh
+#           publish_new_version --target_directory="." --registry="${{ inputs.registry }}" --current_version="${{ inputs.current_version }}"
